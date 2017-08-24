@@ -7,12 +7,12 @@ class Piece
 {
 public:
     Piece();
-    Piece(PieceType type, Color c);
-    Piece(char s);
-    Piece(Piece& p);
+    Piece(const PieceType& type, const Color& c);
+    Piece(const char& s);
+    Piece(const Piece& p);
     ~Piece();
-    char GetSymbol();
-    //GetUnicodeSymbol();
+    char Symbol();
+    //UnicodeSymbol();
 
 private:
     PieceType id;

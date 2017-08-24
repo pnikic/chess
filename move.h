@@ -9,10 +9,10 @@ class Move
 public:
     Move();
     Move(Square& a, Square& b, PieceType p = NONE);
-    Move(std::string s);
+    Move(const std::string& s);
     Move(const Move& m);
     ~Move();
-    std::string GetUCI() const;
+    std::string UCI() const;
 
 private:
     Square from;

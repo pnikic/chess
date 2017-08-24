@@ -7,15 +7,16 @@ class Square
 {
 public:
     Square();
-    Square(int file, int rank);
-    Square(SquareType s);
-    Square(Square& s);
+    Square(const int& file, const int& rank);
+    Square(const SquareType& s);
+    Square(const std::string& s);
+    Square(const Square& s);
     ~Square();
-    FileType GetFile() const;
-    RankType GetRank() const;
-    SquareType GetSquareType() const;
+    FileType File() const;
+    RankType Rank() const;
+    SquareType Id() const;
     int Distance(const Square& rhs) const;    //Distance to another square in king moves
-    std::string GetName() const;
+    std::string Name() const;
     friend std::ostream& operator<<(std::ostream& buf, const Square& sq);
 
 private:

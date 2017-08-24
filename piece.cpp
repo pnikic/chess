@@ -6,19 +6,19 @@ Piece::Piece()
     id = NONE;
 }
 
-Piece::Piece(PieceType type, Color c)
+Piece::Piece(const PieceType& type, const Color& c)
 {
     assert(type <= NONE);
     id = type;
     color = c;
 }
 
-Piece::Piece(char s)
+Piece::Piece(const char& s)
 {
     color = isupper(s);
-    s = toupper(s);
+    char S = toupper(s);
     for (int i = 0; i < 7; ++i)
-        if (s == PieceNames[i])
+        if (S == PieceNames[i])
         {
             id = PieceTypes[i];
             return;
@@ -26,7 +26,7 @@ Piece::Piece(char s)
     assert(false);
 }
 
-Piece::Piece(Piece& p)
+Piece::Piece(const Piece& p)
 {
     id = p.id;
     color = p.color;
@@ -34,9 +34,10 @@ Piece::Piece(Piece& p)
 
 Piece::~Piece(){}
 
-char Piece::GetSymbol()
+char Piece::Symbol()
 {
     for (int i = 0; i < 7; ++i)
         if (id == PieceTypes[i])
             return color ? PieceNames[i] : tolower(PieceNames[i]);
+    assert(false);
 }
