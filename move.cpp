@@ -8,9 +8,10 @@ Move::Move()
     promotion = NONE;
 }
 
-Move::Move(Square& a, Square& b, PieceType p /*= NONE*/)
+Move::Move(const Square& a, const Square& b, PieceType p /*= NONE*/)
 {
-    assert (a.Id() <= NS && b.Id() <= NS && p <= NONE);
+    ASSERT (a.Id() <= NS && b.Id() <= NS && p <= NONE,
+            "Invalid square(s) or promoted piece!");
     from = a;
     to = b;
     promotion = p;
@@ -18,16 +19,20 @@ Move::Move(Square& a, Square& b, PieceType p /*= NONE*/)
 
 Move::Move(const std::string& s)
 {
-    assert(s.size() <= 5);
-    size_t file1 = FileNames.find(tolower(s[0])), rank1 = RankNames.find(tolower(s[1])), file2 = FileNames.find(tolower(s[2])), rank2 = RankNames.find(tolower(s[3]));
-    assert (file1 != std::string::npos && file2 != std::string::npos && rank1 != std::string::npos && rank2 != std::string::npos);
+    ASSERT(s.size() <= 5, "Invalid UCI move: too long!");
+    size_t file1 = FileNames.find(tolower(s[0])), rank1 = RankNames.find(tolower(s[1]));
+    size_t file2 = FileNames.find(tolower(s[2])), rank2 = RankNames.find(tolower(s[3]));
+    ASSERT(file1 != std::string::npos && file2 != std::string::npos &&
+           rank1 != std::string::npos && rank2 != std::string::npos,
+           "Invlid UCI move: invalid number(s) or letter(s)!");
     from = Square(file1, rank1);
     to = Square(file2, rank2);
 
     if (s.size() == 5)
     {
         size_t ind = PieceNames.find(toupper(s[4]), 1);
-        assert(ind != std::string::npos && ind != 5);
+        ASSERT(ind != std::string::npos && ind != 5,
+               "Invalic UCI move: invalid promoted piece!");
         promotion = PieceTypes[ind];
     }
     else
@@ -41,9 +46,8 @@ Move::Move(const Move& m)
     promotion = m.promotion;
 }
 
-Move::~Move(){};
-
 std::string Move::UCI() const
 {
-    return from.Name() + to.Name() + (promotion != NONE ? std::string(1, tolower(PieceNames[promotion])) : "");
+    return from.Name() + to.Name() +
+        (promotion != NONE ? std::string(1, tolower(PieceNames[promotion])) : "");
 }

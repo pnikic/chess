@@ -3,31 +3,158 @@
 
 Board::Board()
 {
-    fen = StartingBoardFEN;
+    SetBoardFen(StartingFEN);
     turn = WHITE;
     castlingRights = 15; // 0 0 0 0 1 1 1 1
-    enPassant = NS;
-    fullMoveNumber = 0;
+    enPassant = Square(NS);
     halfMoveClock = 0;
+    fullMoveNumber = 1;
 }
 
 Board::Board(const std::string& longFen)
 {
-    std::copy(EmptyBoard, EmptyBoard + 8, board);
+    castlingRights = 0; // 0 0 0 0 0 0 0 0
+    enPassant = Square(NS);
+    fullMoveNumber = 1;
+    halfMoveClock = 0;
     SetBoardFen(longFen);
 }
 
-void Board::SetBoardFen(const std::string& f)
+Board::Board(const Board& b)
 {
-    size_t ws[5];
-    for (int i = 0; i < 5; ++i)
+    board = b.board;
+    castlingRights = b.castlingRights;
+    turn = b.turn;
+    enPassant = b.enPassant;
+    fullMoveNumber = b.fullMoveNumber;
+    halfMoveClock = b.halfMoveClock;
+}
+
+void Board::ClearBoard()
+{
+    board = EmptyBoard;
+    castlingRights = 0;
+    turn = WHITE;
+    enPassant = Square(NS);
+    fullMoveNumber = 1;
+    halfMoveClock = 0;
+}
+
+SetSquares Board::Pieces(const Piece& p)
+{
+    SetSquares ss;
+    for (int i = 0; i < 8; ++i)
+        for (int j = 0; j < 8; ++j)
+            if (board[i][j] == p.Symbol())
+                ss.Add(Square(j, i));
+    
+    return ss;
+}
+
+Piece Board::PieceAt(const Square& s)
+{
+    char at = board[s.Rank()][s.File()];
+    return at != '.' ? Piece(at) : Piece();
+}
+
+PieceType Board::PieceTypeAt(const Square& s)
+{
+    char at = board[s.Rank()][s.File()];
+    if (at != '.')
     {
-        ws[i] = f.find(' ', (i ? ws[i - 1] + 1 : 0));
-        assert (ws[i] != std::string::npos);
+        size_t f = PieceNames.find(toupper(at));
+        ASSERT(f != std::string::npos, "Invalid piece type!");
+        return PieceTypes[f];
+    }
+    else
+        return NONE;
+}
+
+Square Board::King(Color c)
+{
+    char king = c ? 'k' : 'K';
+    for (int i = 0; i < 8; ++i)
+        for (int j = 0; j < 8; ++j)
+            if (board[i][j] == king)
+                return Square(j, i);
+
+    CRASH("Invalid board: No king(s)!");
+}
+
+Piece Board::RemovePieceAt(const Square& s)
+{
+    char at = board[s.Rank()][s.File()];
+    board[s.Rank()][s.File()] = '.';
+    
+    if (at != '.')
+        return Piece(at);
+    else
+        return Piece();
+}
+
+void Board::SetPieceAt(const Square& s, const Piece& p)
+{
+    char sym = p.Symbol();
+    board[s.Rank()][s.File()] = sym != ' ' ? sym : '.';
+}
+
+std::string Board::BoardFen()
+{
+    std::string fen = "";
+    for (int i = 7; i >= 0; --i)
+    {
+        if (i < 7)
+            fen += '/';
+            
+        int pawns = 0;
+        for (char c : board[i])
+        {
+            if (c == '.')
+                ++pawns;
+            else
+            {
+                if (pawns)
+                    fen += pawns + '0';
+                pawns = 0;
+                fen += c;
+            }
+        }
+
+        // Trailing unprinted pawns
+        if (pawns)
+            fen += pawns + '0';
     }
     
-    fen = f.substr(0, ws[0]);
-    assert(std::count(f.begin(), f.end(), '/') == 7);
+    fen += turn == WHITE ? " w " : " b ";
+
+    std::string castle = "KQkq";
+    for (int i = 0; i < 4; ++i)
+        if (castlingRights & (1 << i))
+            fen += castle[i];
+
+    fen += fen.back() == ' ' ? "- " : " ";
+    fen += enPassant.Id() != NS ? enPassant.Name() : "-";
+    fen += " " + std::to_string(halfMoveClock) + " " + std::to_string(fullMoveNumber);
+    return fen;
+}
+
+void Board::SetBoardFen(const std::string& fenStr)
+{
+    std::string f = trim(fenStr);
+    f = reduce(f);
+
+    board = EmptyBoard;
+    size_t ws[5];
+    int i = 0;
+    do
+        ws[i] = f.find(' ', (i ? ws[i - 1] + 1 : 0));
+    while (ws[i] != std::string::npos && ++i < 5);
+
+    ASSERT(ws[0] != std::string::npos,
+           "Invalid FEN: Missing whitespace after piece placement!");
+    ASSERT(std::count(f.begin(), f.end(), '/') == 7,
+           "Invalid FEN: Input must containt seven '/' characters!");
+    
     size_t it = 0;
     for (int i = 0; i < 8; ++i)
     {
@@ -43,27 +170,83 @@ void Board::SetBoardFen(const std::string& f)
             else if (num != std::string::npos)
                 to8 += num + 1;
             else
-                assert(false);
+                CRASH("Invalid FEN: Irregular letter or number in the piece placement!");
 
-            ++it;
+            it++;
         }
-        
-        assert(to8 == 8);
+
+        ASSERT(to8 == 8, "Invalid FEN: Not enoguh pieces on a rank!");
+        it++;
     }
 
-    assert(f[ws[0] + 1] == 'w' || f[ws[0] + 1] == 'b');
+    ASSERT(f[ws[0] + 1] == 'w' || f[ws[0] + 1] == 'b',
+           "Invalid FEN: Side to move must be 'w' or 'b'!");
     turn = f[ws[0] + 1] == 'w' ? WHITE : BLACK;
 
-    size_t nr = ws[2] - ws[1] - 1;
-    std::string castle = "KQkq-";
-    castlingRights = 0;
-    if (f[ws[1] + 1] != '-')
-        for (int i = 0; i < nr; ++i)
+    if (ws[1] != std::string::npos)
+    {
+        size_t nr;
+        if (ws[2] != std::string::npos)
+            nr = ws[2] - ws[1] - 1;
+        else
+            nr = f.size() - ws[1] - 1;
+        
+        std::string castle = "KQkq";
+        castlingRights = 0;
+        if (f[ws[1] + 1] != '-')
         {
-            size_t ind = castle.find(f[ws[1] + 1 + i]);
-            castlingRights |= (1 << ind);
+            for (int i = 0; i < nr; ++i)
+            {
+                size_t ind = castle.find(f[ws[1] + 1 + i]);
+                ASSERT(ind != std::string::npos,
+                       "Invalid FEN: Castling supports only 'K', 'Q', 'k', 'q' or '-'!");
+                castlingRights |= (1 << ind);
+            }
         }
+    }
+    else
+        return;
 
-    // Ispitati je li '-'
-    //enPassant = Square(f.substr(ws[2] + 1));
+    if (ws[2] != std::string::npos)
+    {
+        if (f[ws[2] + 1] != '-')
+            enPassant = Square(f.substr(ws[2] + 1, 2));
+        else
+            enPassant = Square(NS);
+    }
+    else
+        return;
+
+    // TODO: Assert that there is a number (Enforce a number arg to stoi)
+    if (ws[3] != std::string::npos)
+        halfMoveClock = stoi(f.substr(ws[3] + 1, ws[4] - ws[3] - 1));
+    else
+        return;
+
+    if (ws[4] != std::string::npos)
+        fullMoveNumber = stoi(f.substr(ws[4] + 1, f.size() - ws[4] - 1));
+}
+
+std::string Board::CastlingRights()
+{
+    std::string castle = "KQkq", res = "";
+    for (int i = 0; i < 4; ++i)
+        if (castlingRights & (1 << i))
+            res += castle[i];
+
+    return res.size() ? res : "-";    
+}
+
+std::ostream& operator<<(std::ostream& buf, const Board& b)
+{
+    for (int i = 7; i >= 0; --i)
+        buf << b.board[i] << '\n';
+
+    // Testing output (will be removed)
+    buf << "EP: " << b.enPassant.Name() << "\t";
+    buf << "To move: " << (b.turn == WHITE ? "w\t" : "b\t");
+    buf << "HMC: " << b.halfMoveClock << "\t";
+    buf << "FMN: " << b.fullMoveNumber;
+
+    return buf;        
 }

@@ -5,7 +5,7 @@ SetSquares::SetSquares()
     set = 0;
 }
 
-SetSquares::SetSquares(const uint64_t& board)
+SetSquares::SetSquares(uint64_t board)
 {
     set = board;
 }
@@ -14,8 +14,6 @@ SetSquares::SetSquares(const SetSquares& ss)
 {
     set = ss.set;
 }
-
-SetSquares::~SetSquares(){}
 
 void SetSquares::Add(const Square& s)
 {
@@ -44,8 +42,8 @@ bool SetSquares::IsEmpty(const Square& s)
 
 std::ostream& operator<<(std::ostream& buf, const SetSquares& ss)
 {
-    std::string Board[8];
-    std::copy(EmptyBoard, EmptyBoard + 8, Board);
+    BoardArray Board = EmptyBoard;
+
     for (int i = 0; i < 64; ++i)
         if (ss.set & ((uint64_t)1 << i))
             Board[i / 8][i % 8] = '1';

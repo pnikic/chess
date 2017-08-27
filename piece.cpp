@@ -4,26 +4,22 @@
 Piece::Piece()
 {
     id = NONE;
+    color = WHITE;
 }
 
-Piece::Piece(const PieceType& type, const Color& c)
+Piece::Piece(PieceType type, Color c)
 {
-    assert(type <= NONE);
+    ASSERT(type <= NONE && c <= BLACK, "Invalid piece type or color!");
     id = type;
     color = c;
 }
 
-Piece::Piece(const char& s)
+Piece::Piece(char c)
 {
-    color = isupper(s);
-    char S = toupper(s);
-    for (int i = 0; i < 7; ++i)
-        if (S == PieceNames[i])
-        {
-            id = PieceTypes[i];
-            return;
-        }
-    assert(false);
+    color = isupper(c) ? WHITE : BLACK;
+    size_t f = PieceNames.find(toupper(c));
+    ASSERT(f != std::string::npos, "Invalid piece type!");
+    id = PieceTypes[f];
 }
 
 Piece::Piece(const Piece& p)
@@ -32,12 +28,10 @@ Piece::Piece(const Piece& p)
     color = p.color;
 }
 
-Piece::~Piece(){}
-
-char Piece::Symbol()
+char Piece::Symbol() const
 {
     for (int i = 0; i < 7; ++i)
         if (id == PieceTypes[i])
-            return color ? PieceNames[i] : tolower(PieceNames[i]);
-    assert(false);
+            return color ? tolower(PieceNames[i]) : PieceNames[i];
+    CRASH("Invalid piece type!");
 }

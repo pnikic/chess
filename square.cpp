@@ -5,15 +5,15 @@ Square::Square()
     id = NS;
 }
 
-Square::Square(const int& file, const int& rank)
+Square::Square(int file, int rank)
 {
-    assert(file >= 0 && rank >= 0 && file < 8 && rank < 8);
-    id = rank * 8 + file;
+    ASSERT(file >= 0 && rank >= 0 && file < 8 && rank < 8, "Invalid file or rank!");
+    id = static_cast<SquareType>(rank * 8 + file);
 }
 
-Square::Square(const SquareType& s)
+Square::Square(SquareType s)
 {
-    assert(s <= H8);
+    ASSERT(s <= NS, "Invalid square type!");
     id = s;
 }
 
@@ -27,20 +27,19 @@ Square::Square(const std::string& s)
     assert(s.size() == 2);
     size_t file = FileNames.find(s[0]);
     size_t rank = RankNames.find(s[1]);
-    assert (file != std::string::npos && rank != std::string::npos);
-    id = rank * 8 + file;
+    ASSERT(file != std::string::npos && rank != std::string::npos, "Invalid file or rank!");
+    id = static_cast<SquareType>(rank * 8 + file);
 }
 
-Square::~Square(){}
 
-FileType Square::File() const
+int Square::File() const
 {
-    return id % 8;
+    return id != NS ? id % 8 : -1;
 }
 
-RankType Square::Rank() const
+int Square::Rank() const
 {
-    return id / 8;
+    return id != NS ? id / 8 : -1;
 }
 
 SquareType Square::Id() const
@@ -48,11 +47,12 @@ SquareType Square::Id() const
     return id;
 }
 
-int Square::Distance(const Square& rhs) const
+int Square::Distance(const Square& s) const
 {
-    int rankDist = ::abs(Rank() - rhs.Rank());
-    int fileDist = ::abs(File() - rhs.File());
-    return rankDist > fileDist ? rankDist : fileDist;
+    ASSERT(id <= H8 && s.id <= H8, "Invalid squares!");
+    int rankDist = ::abs(Rank() - s.Rank());
+    int fileDist = ::abs(File() - s.File());
+    return std::max(rankDist, fileDist);
 }
 
 std::string Square::Name() const
@@ -65,10 +65,12 @@ std::string Square::Name() const
 
 std::ostream& operator<<(std::ostream& buf, const Square& sq)
 {
-    std::string Board[8];
-    std::copy(EmptyBoard, EmptyBoard + 8, Board);
-    Board[sq.Rank()][sq.File()] = '1';
+    BoardArray Board = EmptyBoard;
+    if (sq.id != NS)
+        Board[sq.Rank()][sq.File()] = '1';
+    
     for (int i = 7; i >= 0; --i)
         buf << Board[i] << '\n';
+    
     return buf;
 }
