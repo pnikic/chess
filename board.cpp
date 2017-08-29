@@ -46,7 +46,7 @@ SetSquares Board::Pieces(const Piece& p)
     for (int i = 0; i < 8; ++i)
         for (int j = 0; j < 8; ++j)
             if (board[i][j] == p.Symbol())
-                ss.Add(Square(j, i));
+                ss.Add(Square(i, j));
     
     return ss;
 }
@@ -76,7 +76,7 @@ Square Board::King(Color c)
     for (int i = 0; i < 8; ++i)
         for (int j = 0; j < 8; ++j)
             if (board[i][j] == king)
-                return Square(j, i);
+                return Square(i, j);
 
     CRASH("Invalid board: No king(s)!");
 }
@@ -210,6 +210,7 @@ void Board::SetBoardFen(const std::string& fenStr)
     if (ws[2] != std::string::npos)
     {
         if (f[ws[2] + 1] != '-')
+            // TODO: Assert this is a regular square (not for instance z9)
             enPassant = Square(f.substr(ws[2] + 1, 2));
         else
             enPassant = Square(NS);
@@ -235,6 +236,92 @@ std::string Board::CastlingRights()
             res += castle[i];
 
     return res.size() ? res : "-";    
+}
+
+bool Board::HasLegalEnPassant()
+{
+    if (enPassant.Id() != NS)
+    {
+        int file = enPassant.File();
+        int rank = turn == WHITE ? 4 : 3;
+        if (file - 1 >= 0 && board[rank][file - 1] == (turn == WHITE ? 'P' : 'p'))
+            return true;
+        if (file + 1 < 8 && board[rank][file + 1] == (turn == WHITE ? 'P' : 'p'))
+            return true;
+    }
+
+    return false;
+}
+
+std::vector<Move> Board::LegalMoves()
+{
+    std::vector<Move> res;
+    for (int j = 0; j < 8; ++j)
+    {
+        for (int i = 0; i < 8; ++i)
+        {
+            if (board[i][j] == (turn == WHITE ? 'P' : 'p'))
+            {
+                int startRank = turn == WHITE ? 1 : 6;
+                int endRank = turn == WHITE ? 7 : 0;
+
+                // One square forward
+                int fwdRank = i + (turn == WHITE ? 1 : -1);
+                ASSERT(fwdRank >= 0 && fwdRank < 8, "Illegal pawn position!");
+                if (board[fwdRank][j] == '.')
+                {
+                    if (fwdRank != endRank)
+                        res.emplace_back(Square(i, j), Square(fwdRank, j));
+                    else
+                        for (int k = 0; k < 4; ++k)
+                            res.emplace_back(Square(i, j), Square(fwdRank, j), PieceTypes[k + 1]);
+                }
+
+                // Two squares forward
+                int ffwdRank = startRank + (turn == WHITE ? 2 : -2);
+                if (i == startRank && board[fwdRank][j] == '.' && board[ffwdRank][j] == '.')
+                    res.emplace_back(Square(i, j), Square(ffwdRank, j));
+
+                // Capturing (diagonal)
+                // Left
+                if (j  > 0 && board[fwdRank][j - 1] != '.' &&
+                    (turn == WHITE ? islower(board[fwdRank][j - 1]) : isupper(board[fwdRank][j - 1])))
+                {
+                    if (fwdRank != endRank)
+                        res.emplace_back(Square(i, j), Square(fwdRank, j - 1));
+                    else
+                        for (int k = 0; k < 4; ++k)
+                            res.emplace_back(Square(i, j), Square(fwdRank, j - 1), PieceTypes[k + 1]);
+                    
+                }
+                // Right
+                if (j < 7 && board[fwdRank][j + 1] != '.' &&
+                    (turn == WHITE ? islower(board[fwdRank][j + 1]) : isupper(board[fwdRank][j + 1])))
+                {
+                    if (fwdRank != endRank)
+                        res.emplace_back(Square(i, j), Square(fwdRank, j + 1));
+                    else
+                        for (int k = 0; k < 4; ++k)
+                            res.emplace_back(Square(i, j), Square(fwdRank, j + 1), PieceTypes[k + 1]);
+                }
+                
+                // En passant
+                int epRank = turn == WHITE ? 4 : 3;
+                if (i == epRank && HasLegalEnPassant())
+                {
+                    int epFile = enPassant.File();
+                    if (j + 1 == epFile)
+                        res.emplace_back(Square(i, j), Square(fwdRank, j + 1));
+                    if (j - 1 == epFile)
+                        res.emplace_back(Square(i, j), Square(fwdRank, j - 1));
+                    
+                }
+            }
+        }
+    }
+
+
+    return res;
 }
 
 std::ostream& operator<<(std::ostream& buf, const Board& b)

@@ -25,8 +25,8 @@ Move::Move(const std::string& s)
     ASSERT(file1 != std::string::npos && file2 != std::string::npos &&
            rank1 != std::string::npos && rank2 != std::string::npos,
            "Invlid UCI move: invalid number(s) or letter(s)!");
-    from = Square(file1, rank1);
-    to = Square(file2, rank2);
+    from = Square(rank1, file1);
+    to = Square(rank2, file2);
 
     if (s.size() == 5)
     {

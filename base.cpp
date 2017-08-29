@@ -35,3 +35,13 @@ std::string reduce(const std::string& str,
 
     return result;
 }
+
+SquareType ToSquare(int rank, int file)
+{
+    return static_cast<SquareType>(rank * 8 + file);
+}
+
+SquareType ToSquare(int id)
+{
+    return static_cast<SquareType>(id);
+}

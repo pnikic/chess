@@ -10,7 +10,7 @@ using namespace std;
 int main()
 {
     //First test
-/*  Square e4(4, 3);
+/*  Square e4(3, 4);
     Square d5("d5");
     Square a1(A1);
     cout << e4 << "\n" << d5.Name() << endl;
@@ -32,8 +32,8 @@ int main()
     sA.Add(e4);
     sA.Add(d5);
     sA.Remove(Square(B1));
-    sA.Remove(Square(2,0));
-    sA.Add(Square(6,1));
+    sA.Remove(Square(0, 2));
+    sA.Add(Square(1, 6));
     cout << sA << endl;
     cout << sA.Count() << endl;
     cout << sA.IsEmpty(Square(B1)) << endl;
@@ -54,13 +54,15 @@ int main()
     std::string testFen[] = {"r1bq1b1r/ppp2kpp/2n5/3np3/2B5/8/PPPP1PPP/RNBQK2R w KQ - 0 7",
                              "rnbqk1nr/ppp2ppp/8/4P3/1BP5/8/PP2K1PP/RN1Q1BnR w kq - 0 8",
                              "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3",
-                             "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"};
+                             "rnbqkbnr/p6p/2pp2p1/Pp2pp2/4P1P1/2P2N2/1P1P1P1P/RNBQKB1R w KQkq b6 0 7",
+                             "rn1qkbn1/pP5r/3pN1p1/4ppPp/4P3/2Np4/1p1KBP1P/R1BQ3R b q - 0 17"};
     for (string s : testFen)
     {
         Board brd(s);
         cout << brd << endl;
         cout << brd.CastlingRights() << endl;
         cout << brd.BoardFen() << endl;
+        /*
         cout << "Kings: " << brd.King(WHITE).Name() << ", " << brd.King(BLACK).Name() << endl;
         cout << "PieceAt: e4 = " << brd.PieceAt(Square("e4")).Symbol() <<
             ", f8 = " << brd.PieceAt(Square("f8")).Symbol() << endl;
@@ -70,6 +72,12 @@ int main()
 
         if (s == testFen[3])
             brd.ClearBoard(), cout << "ClearBoard:\n" << brd << "\n " << brd.CastlingRights() << "\n " << brd.BoardFen() << endl;
+        */
+        std::vector<Move> mvs = brd.LegalMoves();
+        for (Move mov : mvs)
+            cout << mov.UCI() << " ";
+        cout << endl << endl;
+        
     }
 
 }

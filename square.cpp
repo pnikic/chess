@@ -5,10 +5,10 @@ Square::Square()
     id = NS;
 }
 
-Square::Square(int file, int rank)
+Square::Square(int rank, int file)
 {
     ASSERT(file >= 0 && rank >= 0 && file < 8 && rank < 8, "Invalid file or rank!");
-    id = static_cast<SquareType>(rank * 8 + file);
+    id = ToSquare(rank, file);
 }
 
 Square::Square(SquareType s)
@@ -28,7 +28,7 @@ Square::Square(const std::string& s)
     size_t file = FileNames.find(s[0]);
     size_t rank = RankNames.find(s[1]);
     ASSERT(file != std::string::npos && rank != std::string::npos, "Invalid file or rank!");
-    id = static_cast<SquareType>(rank * 8 + file);
+    id = ToSquare(rank, file);
 }
 
 

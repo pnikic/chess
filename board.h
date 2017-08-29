@@ -6,7 +6,6 @@
 #include "move.h"
 #include "piece.h"
 #include "setsqr.h"
-#include <vector>
 
 class Board
 {
@@ -51,6 +50,15 @@ public:
 
     // Returns (not necessary valid) castling rights.
     std::string CastlingRights();
+
+    // Checks if the side to move has a legal en passant.
+    bool HasLegalEnPassant();
+
+    // Returns a dynamic list of legal moves.
+    std::vector<Move> LegalMoves();
+    //TODO: Legalness question, pins etc.
+    //TODO: Assert regularity of position (for instance: no pawns on ranks 0 and 7)
+
     
     friend std::ostream& operator<<(std::ostream& buf, const Board& b);
     

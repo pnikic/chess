@@ -8,7 +8,7 @@ class Square
 public:
     Square();
     
-    Square(int file, int rank);
+    Square(int rank, int file);
     
     Square(SquareType s);
     

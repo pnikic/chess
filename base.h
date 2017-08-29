@@ -15,9 +15,7 @@
 #include <cstdint>
 #include <iostream>
 #include <string>
-
-typedef std::array<std::string, 8> BoardArray;
-
+#include <vector>
 
 enum PieceType { PAWN = 0, KNIGHT = 1, BISHOP = 2, ROOK = 3, QUEEN = 4, KING = 5, NONE = 6 };
 enum Color { WHITE = 0, BLACK = 1 };
@@ -31,6 +29,9 @@ enum SquareType { A1 = 0, B1 = 1, C1 = 2, D1 = 3, E1 = 4, F1 = 5, G1 = 6, H1 = 7
                   A8 = 56, B8 = 57, C8 = 58, D8 = 59, E8 = 60, F8 = 61, G8 = 62, H8 = 63, NS = 64 };
                   // NS = NULL SQUARE
 
+typedef std::array<std::string, 8> BoardArray;
+typedef std::array<SquareType, 64> SquareArray; //only for main.cpp
+
 //Squares[A1, ..., H8]
 extern const std::string FileNames;
 extern const std::string RankNames;
@@ -42,5 +43,8 @@ extern const BoardArray EmptyBoard;
 
 std::string trim(const std::string& str, const std::string& ws = " \t");
 std::string reduce(const std::string& str, const std::string& fill = " ", const std::string& whitespace = " \t");
+
+SquareType ToSquare(int rank, int file);
+SquareType ToSquare(int id);
 
 #endif //BASE_H
