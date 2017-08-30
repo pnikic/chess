@@ -8,6 +8,10 @@ const BoardArray EmptyBoard = {"........", "........", "........", "........",
                                "........", "........", "........", "........"};
 const std::string StartingFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const std::string StartingBoardFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+const int dxN[8] = {-2, -1, 1, 2,  2,  1, -1, -2};
+const int dyN[8] = { 1,  2, 2, 1, -1, -2, -2, -1};
+const int dx[8] = {-1, -1, 0, 1, 1,  1,  0, -1};
+const int dy[8] = { 0,  1, 1, 1, 0, -1, -1, -1};
 
 std::string trim(const std::string& str, const std::string& ws /* = " \t" */)
 {

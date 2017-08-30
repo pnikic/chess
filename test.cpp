@@ -73,7 +73,7 @@ int main()
         if (s == testFen[3])
             brd.ClearBoard(), cout << "ClearBoard:\n" << brd << "\n " << brd.CastlingRights() << "\n " << brd.BoardFen() << endl;
         */
-        std::vector<Move> mvs = brd.LegalMoves();
+        std::vector<Move> mvs = brd.PseudoLegalMoves();
         for (Move mov : mvs)
             cout << mov.UCI() << " ";
         cout << endl << endl;

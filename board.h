@@ -55,10 +55,9 @@ public:
     bool HasLegalEnPassant();
 
     // Returns a dynamic list of legal moves.
-    std::vector<Move> LegalMoves();
+    std::vector<Move> PseudoLegalMoves();
     //TODO: Legalness question, pins etc.
     //TODO: Assert regularity of position (for instance: no pawns on ranks 0 and 7)
-
     
     friend std::ostream& operator<<(std::ostream& buf, const Board& b);
     
@@ -70,7 +69,8 @@ private:
     int fullMoveNumber;
     int halfMoveClock;
     
-    //std::vector<Move> moveStack;
+    std::vector<Move> moveStack;
+    std::vector<Board> boardStack;
 };
 
 #endif //BOARD_H

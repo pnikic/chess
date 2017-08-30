@@ -235,7 +235,7 @@ std::string Board::CastlingRights()
         if (castlingRights & (1 << i))
             res += castle[i];
 
-    return res.size() ? res : "-";    
+    return res.size() ? res : "-";
 }
 
 bool Board::HasLegalEnPassant()
@@ -253,7 +253,7 @@ bool Board::HasLegalEnPassant()
     return false;
 }
 
-std::vector<Move> Board::LegalMoves()
+std::vector<Move> Board::PseudoLegalMoves()
 {
     std::vector<Move> res;
     for (int j = 0; j < 8; ++j)
@@ -294,6 +294,7 @@ std::vector<Move> Board::LegalMoves()
                             res.emplace_back(Square(i, j), Square(fwdRank, j - 1), PieceTypes[k + 1]);
                     
                 }
+                
                 // Right
                 if (j < 7 && board[fwdRank][j + 1] != '.' &&
                     (turn == WHITE ? islower(board[fwdRank][j + 1]) : isupper(board[fwdRank][j + 1])))
@@ -304,7 +305,6 @@ std::vector<Move> Board::LegalMoves()
                         for (int k = 0; k < 4; ++k)
                             res.emplace_back(Square(i, j), Square(fwdRank, j + 1), PieceTypes[k + 1]);
                 }
-                
                 // En passant
                 int epRank = turn == WHITE ? 4 : 3;
                 if (i == epRank && HasLegalEnPassant())
@@ -316,8 +316,62 @@ std::vector<Move> Board::LegalMoves()
                         res.emplace_back(Square(i, j), Square(fwdRank, j - 1));
                     
                 }
+                
+            }
+            else if (board[i][j] == (turn == WHITE ? 'N' : 'n'))
+            {
+                for (int k = 0; k < 8; ++k)
+                {
+                    int mvRank = i + dyN[k];
+                    int mvCol = j + dxN[k];
+                    if (mvRank >= 0 && mvRank < 8 && mvCol >= 0 && mvCol < 8)
+                    {
+                        char at = board[mvRank][mvCol];
+                        if(at == '.' || (turn == WHITE ? islower(at) : isupper(at)))
+                            res.emplace_back(Square(i, j), Square(mvRank, mvCol));
+                    }
+                }
+            }
+            else if (board[i][j] == (turn == WHITE ? 'B' : 'b')
+                     || board[i][j] == (turn == WHITE ? 'R' : 'r')
+                     || board[i][j] == (turn == WHITE ? 'Q' : 'q')
+                     || board[i][j] == (turn == WHITE ? 'K' : 'k'))
+            {
+                char c = toupper(board[i][j]);
+                int k = c == 'B'? 1 : 0;
+                int stride = c == 'Q' || c == 'K' ? 1 : 2;
+                for (; k < 8; k += stride)
+                {
+                    bool possible = true;
+                    int mvRank = i, mvCol = j;
+                    while (possible)
+                    {
+                        mvRank += dy[k];
+                        mvCol += dx[k];
+                        if (mvRank >= 0 && mvRank < 8 && mvCol >= 0 && mvCol < 8)
+                        {
+                            char at = board[mvRank][mvCol];
+                            if (at == '.')
+                            {
+                                res.emplace_back(Square(i, j), Square(mvRank, mvCol));
+                                possible = c == 'K' ? false : possible;
+                            }
+                            else if (turn == WHITE ? islower(at) : isupper(at))
+                            {
+                                res.emplace_back(Square(i, j), Square(mvRank, mvCol));
+                                possible = false;
+                            }
+                            else
+                                possible = false;
+                        }
+                        else
+                            possible = false;
+                    }
+                }
             }
         }
+
+        // Check castling rights
     }
 
 
