@@ -43,13 +43,28 @@ public:
     void SetPieceAt(const Square& s, const Piece& p);
     
     // Gets the board FEN.
-    std::string BoardFen();
+    std::string FEN();
     
     // Parses a FEN and sets the board from it.
-    void SetBoardFen(const std::string& fenStr);
+    void SetFEN(const std::string& fenStr);
 
-    // Returns (not necessary valid) castling rights.
+    // Returns valid castling rights. This does not imply that castling is a legal move.
     std::string CastlingRights();
+
+    // Checks if the given side can castle kingside.
+    bool CanCastleKS(Color c);
+
+    // Checks if the given side can castle queenside.
+    bool CanCastleQS(Color c);
+    // TODO: Assert regularity of position (other king not in check)
+
+    // Checks if the given side attacks the given square.
+    // Pinned pieces still count as attackers.
+    bool IsAttackedBy(const Color& c, const Square& s);
+
+    // Returns if the side to move is in check.
+    bool IsCheck();
+    //TODO: Assert regularity of position (no adjacent kings)
 
     // Checks if the side to move has a legal en passant.
     bool HasLegalEnPassant();
@@ -57,7 +72,10 @@ public:
     // Returns a dynamic list of legal moves.
     std::vector<Move> PseudoLegalMoves();
     //TODO: Legalness question, pins etc.
-    //TODO: Assert regularity of position (for instance: no pawns on ranks 0 and 7)
+    //TODO: Assert regularity of position (no pawns on ranks 0 and 7)
+
+    // Returns the side to move.
+    Color ToMove();
     
     friend std::ostream& operator<<(std::ostream& buf, const Board& b);
     

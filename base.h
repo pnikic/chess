@@ -31,7 +31,7 @@ enum SquareType { A1 = 0, B1 = 1, C1 = 2, D1 = 3, E1 = 4, F1 = 5, G1 = 6, H1 = 7
 
 typedef std::array<std::string, 8> BoardArray;
 
-//Squares[A1, ..., H8]
+extern const SquareType Squares[64];
 extern const std::string FileNames;
 extern const std::string RankNames;
 extern const std::string PieceNames;
@@ -45,6 +45,7 @@ std::string reduce(const std::string& str, const std::string& fill = " ", const 
 
 SquareType ToSquare(int rank, int file);
 SquareType ToSquare(int id);
+Color Switch(Color c);
 extern const int dxN[8];
 extern const int dyN[8];
 extern const int dx[8];

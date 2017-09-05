@@ -3,7 +3,7 @@
 
 Board::Board()
 {
-    SetBoardFen(StartingFEN);
+    SetFEN(StartingFEN);
     turn = WHITE;
     castlingRights = 15; // 0 0 0 0 1 1 1 1
     enPassant = Square(NS);
@@ -17,7 +17,7 @@ Board::Board(const std::string& longFen)
     enPassant = Square(NS);
     fullMoveNumber = 1;
     halfMoveClock = 0;
-    SetBoardFen(longFen);
+    SetFEN(longFen);
 }
 
 Board::Board(const Board& b)
@@ -53,18 +53,28 @@ SetSquares Board::Pieces(const Piece& p)
 
 Piece Board::PieceAt(const Square& s)
 {
-    char at = board[s.Rank()][s.File()];
-    return at != '.' ? Piece(at) : Piece();
+    if (s.Id() != NS)
+    {
+        char at = board[s.Rank()][s.File()];
+        return at != '.' ? Piece(at) : Piece();
+    }
+    else
+        return Piece();
 }
 
 PieceType Board::PieceTypeAt(const Square& s)
 {
-    char at = board[s.Rank()][s.File()];
-    if (at != '.')
+    if (s.Id() != NS)
     {
-        size_t f = PieceNames.find(toupper(at));
-        ASSERT(f != std::string::npos, "Invalid piece type!");
-        return PieceTypes[f];
+        char at = board[s.Rank()][s.File()];
+        if (at != '.')
+        {
+            size_t f = PieceNames.find(toupper(at));
+            ASSERT(f != std::string::npos, "Invalid piece type!");
+            return PieceTypes[f];
+        }
+        else
+            return NONE;
     }
     else
         return NONE;
@@ -83,22 +93,30 @@ Square Board::King(Color c)
 
 Piece Board::RemovePieceAt(const Square& s)
 {
-    char at = board[s.Rank()][s.File()];
-    board[s.Rank()][s.File()] = '.';
+    if (s.Id() != NS)
+    {
+        char at = board[s.Rank()][s.File()];
+        board[s.Rank()][s.File()] = '.';
     
-    if (at != '.')
-        return Piece(at);
+        if (at != '.')
+            return Piece(at);
+        else
+            return Piece();
+    }
     else
         return Piece();
 }
 
 void Board::SetPieceAt(const Square& s, const Piece& p)
 {
-    char sym = p.Symbol();
-    board[s.Rank()][s.File()] = sym != ' ' ? sym : '.';
+    if (s.Id() != NS)
+    {
+        char sym = p.Symbol();
+        board[s.Rank()][s.File()] = sym != ' ' ? sym : '.';
+    }
 }
 
-std::string Board::BoardFen()
+std::string Board::FEN()
 {
     std::string fen = "";
     for (int i = 7; i >= 0; --i)
@@ -138,7 +156,7 @@ std::string Board::BoardFen()
     return fen;
 }
 
-void Board::SetBoardFen(const std::string& fenStr)
+void Board::SetFEN(const std::string& fenStr)
 {
     std::string f = trim(fenStr);
     f = reduce(f);
@@ -236,6 +254,56 @@ std::string Board::CastlingRights()
             res += castle[i];
 
     return res.size() ? res : "-";
+}
+
+bool Board::CanCastleKS(Color c)
+{
+    int firstRank = c == WHITE ? 0 : 7;
+    char rook = c == WHITE ? 'R' : 'r';
+    int i = c == WHITE ? 0 : 2;
+
+    // We assume that the neither the king nor the choosen rook has previously moved.
+    // If they had moved before, the corresponding entry castlingRights would be 0.
+    if ((1 << i) & castlingRights)
+    {
+        Square kingSq = King(c);
+        bool flag = true;
+        // The king and the choosen rook are on the player's first rank. (1)
+        // There are no pieces between the king and the rook. (2)
+        // The king does not start/pass/land from/over/on a square that is attack by an enemy piece (3,4,5)        
+        if (kingSq.Rank() != firstRank || kingSq.File() != 4 || board[firstRank][7] != rook ||
+            board[firstRank][5] != '.' || board[firstRank][6] != '.' ||
+            IsAttackedBy(Switch(c), Square(firstRank, 4)) ||
+            IsAttackedBy(Switch(c), Square(firstRank, 5)) ||
+            IsAttackedBy(Switch(c), Square(firstRank, 6)))
+            flag = false;
+        return flag;
+    }
+    else
+        return false;    
+}
+
+bool Board::CanCastleQS(Color c)
+{
+    int firstRank = c == WHITE ? 0 : 7;
+    char rook = c == WHITE ? 'R' : 'r';
+    int i = c == WHITE ? 1 : 3;
+
+    if ((1 << i) & castlingRights)
+    {
+        Square kingSq = King(c);
+        bool flag = true;
+        if (kingSq.Rank() != firstRank || kingSq.File() != 4 || board[firstRank][0] != rook ||
+            board[firstRank][1] != '.' || board[firstRank][2] != '.' || board[firstRank][3] != '.' ||
+            IsAttackedBy(Switch(c), Square(firstRank, 2)) ||
+            IsAttackedBy(Switch(c), Square(firstRank, 3)) ||
+            IsAttackedBy(Switch(c), Square(firstRank, 4)))
+            flag = false;
+
+        return flag;
+    }
+    else
+        return false;
 }
 
 bool Board::HasLegalEnPassant()
@@ -376,6 +444,82 @@ std::vector<Move> Board::PseudoLegalMoves()
 
 
     return res;
+}
+
+bool Board::IsAttackedBy(const Color& c, const Square& s)
+{
+    if (s.Id() != NS)
+    {
+        int sqRank = s.Rank(), sqFile = s.File();
+        int pawnRank = sqRank + (c == WHITE ? -1 : 1);
+        // Pawn attacks
+        char pawn = c == WHITE ? 'P' : 'p';
+        if (pawnRank >= 0 && pawnRank < 8 &&
+            ((sqFile > 0 && board[pawnRank][sqFile - 1] == pawn) ||
+             (sqFile < 7 && board[pawnRank][sqFile + 1] == pawn)))
+            return true;
+
+        // Knight attacks
+        char knight = c == WHITE ? 'N' : 'n';
+        for (int i = 0; i < 8; ++i)
+        {
+            int mvRank = sqRank + dyN[i];
+            int mvFile = sqFile + dxN[i];
+            if (mvRank >= 0 && mvRank < 8 && mvFile >= 0 && mvFile < 8 && board[mvRank][mvFile] == knight)
+                return true;
+        }
+
+        // Bishop, rook and queen attacks
+        char bishop = c == WHITE ? 'B' : 'b';
+        char rook = c == WHITE ? 'R' : 'r';
+        char queen = c == WHITE ? 'Q' : 'q';
+        for (int i = 0; i < 8; ++i)
+        {
+            bool possible = true;
+            int mvRank = sqRank, mvFile = sqFile;
+            while (possible)
+            {
+                mvRank += dy[i];
+                mvFile += dx[i];
+                if (mvRank >= 0 && mvRank < 8 && mvFile >= 0 && mvFile < 8)
+                {
+                    if (i % 2 && (board[mvRank][mvFile] == bishop || board[mvRank][mvFile] == queen))
+                        return true;
+                    else if (!(i % 2) && (board[mvRank][mvFile] == rook || board[mvRank][mvFile] == queen))
+                        return true;
+
+                    if (board[mvRank][mvFile] != '.')
+                        possible = false;
+                }
+                else
+                    possible = false;
+            }
+        }
+
+        // King attacks
+        char king = c == WHITE ? 'K' : 'k';
+        for (int i = 0; i < 8; ++i)
+        {
+            int mvRank = sqRank + dy[i];
+            int mvFile = sqFile + dx[i];
+            if (mvRank >= 0 && mvRank < 8 && mvFile >= 0 && mvFile < 8 && board[mvRank][mvFile] == king)
+                return true;
+        }
+
+        return false;
+    }
+    else
+        return false;
+}
+
+bool Board::IsCheck()
+{
+    return IsAttackedBy(Switch(turn), King(turn));
+}
+
+Color Board::ToMove()
+{
+    return turn;
 }
 
 std::ostream& operator<<(std::ostream& buf, const Board& b)
