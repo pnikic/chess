@@ -25,16 +25,16 @@ public:
     void ClearBoard();
     
     // Gets pieces of the given type and color.
-    SetSquares Pieces(const Piece& p);
+    SetSquares Pieces(const Piece& p) const;
 
     // Returns the piece at the given square.
-    Piece PieceAt(const Square& s);
+    Piece PieceAt(const Square& s) const;
 
     // Returns the piece type at the given square.
-    PieceType PieceTypeAt(const Square& s);
+    PieceType PieceTypeAt(const Square& s) const;
     
     // Finds the king square of the given side.
-    Square King(Color c);
+    Square King(Color c) const;
     
     // Removes the piece from the given square. Returns the Piece or None if the square was already empty.
     Piece RemovePieceAt(const Square& s);
@@ -43,39 +43,38 @@ public:
     void SetPieceAt(const Square& s, const Piece& p);
     
     // Gets the board FEN.
-    std::string FEN();
+    std::string FEN() const;
     
     // Parses a FEN and sets the board from it.
     void SetFEN(const std::string& fenStr);
 
     // Returns valid castling rights. This does not imply that castling is a legal move.
-    std::string CastlingRights();
+    std::string CastlingRights() const;
 
-    // Checks if the given side can castle kingside.
-    bool CanCastleKS(Color c);
-
-    // Checks if the given side can castle queenside.
-    bool CanCastleQS(Color c);
+    // Checks if the given side can castle (false = queenside, true = kingside)
+    bool CanCastle(Color c, bool side) const;
     // TODO: Assert regularity of position (other king not in check)
 
     // Checks if the given side attacks the given square.
     // Pinned pieces still count as attackers.
-    bool IsAttackedBy(const Color& c, const Square& s);
+    bool IsAttackedBy(const Color& c, const Square& s) const;
 
     // Returns if the side to move is in check.
-    bool IsCheck();
+    bool IsCheck() const;
     //TODO: Assert regularity of position (no adjacent kings)
 
     // Checks if the side to move has a legal en passant.
-    bool HasLegalEnPassant();
+    bool HasLegalEnPassant() const;
 
-    // Returns a dynamic list of legal moves.
-    std::vector<Move> PseudoLegalMoves();
+    // Returns a dynamic list of pseudo legal moves.
+    // Pseudo legal moves might leave or put the king in check, but are otherwise valid.
+    // Null moves are not pseudo legal. Castling moves are only included if they are completely legal.
+    std::vector<Move> PseudoLegalMoves() const;
     //TODO: Legalness question, pins etc.
     //TODO: Assert regularity of position (no pawns on ranks 0 and 7)
 
     // Returns the side to move.
-    Color ToMove();
+    Color ToMove() const;
     
     friend std::ostream& operator<<(std::ostream& buf, const Board& b);
     

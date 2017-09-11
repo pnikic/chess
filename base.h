@@ -39,6 +39,10 @@ extern const PieceType PieceTypes[];
 extern const std::string StartingFEN;
 extern const std::string StartingBoardFEN;
 extern const BoardArray EmptyBoard;
+extern const int dxN[8];
+extern const int dyN[8];
+extern const int dx[8];
+extern const int dy[8];
 
 std::string trim(const std::string& str, const std::string& ws = " \t");
 std::string reduce(const std::string& str, const std::string& fill = " ", const std::string& whitespace = " \t");
@@ -46,10 +50,6 @@ std::string reduce(const std::string& str, const std::string& fill = " ", const 
 SquareType ToSquare(int rank, int file);
 SquareType ToSquare(int id);
 Color Switch(Color c);
-extern const int dxN[8];
-extern const int dyN[8];
-extern const int dx[8];
-extern const int dy[8];
-
+bool Legal(int elem);
 
 #endif //BASE_H

@@ -57,12 +57,12 @@ void Test::test1()
     ASSERT(sA.Count() == 4, "SetSquares::Count");
     ASSERT(sA.IsEmpty(Square(B1)), "SetSquares::IsEmpty");
 
-    std::cout << "Test #1 succesfully finished." << std::endl;
+    std::cout << "Test #1 succesfully finished.\n" << std::endl;
 }
 
 void Test::test2()
 {
-    std::cout << "Test #2 started...(8 subtests)" << std::endl << "\t Finished:";
+    std::cout << "Test #2 started...(8 subtests)" << std::endl;
     std::string sol[9][8] = {{"r1bq1b1r/ppp2kpp/2n5/3np3/2B5/8/PPPP1PPP/RNBQK2R w KQ - 0 7",
                               "rnbqk1nr/ppp2ppp/8/4P3/1BP5/8/PP2K1PP/RN1Q1BnR w kq - 0 8",
                               "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1",
@@ -120,10 +120,21 @@ void Test::test2()
         ss.str(std::string());
 
         ASSERT((brd.IsCheck() ? "y" : "n") == sol[8][i], "Board::IsCheck");
-        
-        std::cout << " " << i + 1 << std::flush;
+
+        int cnt = 0;
+        std::cout << brd << std::endl;
+        for (auto& move : brd.PseudoLegalMoves())
+        {
+            std::cout << " " << move.UCI();
+            if (++cnt > 4)
+                cnt = 0, std::cout << std::endl;
+        }
+        if (cnt)
+            std::cout << std::endl;
+        std::cout << std::endl;
+            
     }
-    std::cout << std::endl << "Test #2 succesfully finished." << std::endl;
+    std::cout << std::endl << "Test #2 succesfully finished.\n" << std::endl;
 
 }
     
