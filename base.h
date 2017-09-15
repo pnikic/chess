@@ -28,6 +28,9 @@ enum SquareType { A1 = 0, B1 = 1, C1 = 2, D1 = 3, E1 = 4, F1 = 5, G1 = 6, H1 = 7
                   A7 = 48, B7 = 49, C7 = 50, D7 = 51, E7 = 52, F7 = 53, G7 = 54, H7 = 55,
                   A8 = 56, B8 = 57, C8 = 58, D8 = 59, E8 = 60, F8 = 61, G8 = 62, H8 = 63, NS = 64 };
                   // NS = NULL SQUARE
+enum Status { Valid = 0, NoWhiteKing = 1, NoBlackKing = 2, TooManyKings = 4, TooManyWhitePawns = 8,
+              TooManyBlackPawns = 16, PawnsOnBackRank = 32, TooManyWhitePieces = 64, TooManyBlackPieces = 128,
+              AdjacentKings = 256, InvalidEpSquare = 512, OppositeCheck = 1024, Empty = 2048};
 
 typedef std::array<std::string, 8> BoardArray;
 
@@ -50,6 +53,7 @@ std::string reduce(const std::string& str, const std::string& fill = " ", const 
 SquareType ToSquare(int rank, int file);
 SquareType ToSquare(int id);
 Color Switch(Color c);
-bool Legal(int elem);
+bool Legal(int a);
+bool Legal(int a, int b);
 
 #endif //BASE_H

@@ -9,6 +9,7 @@ Board::Board()
     enPassant = Square(NS);
     halfMoveClock = 0;
     fullMoveNumber = 1;
+    status = Valid;
 }
 
 Board::Board(const std::string& longFen)
@@ -18,6 +19,8 @@ Board::Board(const std::string& longFen)
     fullMoveNumber = 1;
     halfMoveClock = 0;
     SetFEN(longFen);
+    status = Valid;
+    Status();
 }
 
 Board::Board(const Board& b)
@@ -28,6 +31,7 @@ Board::Board(const Board& b)
     enPassant = b.enPassant;
     fullMoveNumber = b.fullMoveNumber;
     halfMoveClock = b.halfMoveClock;
+    status = b.status;
 }
 
 void Board::ClearBoard()
@@ -38,6 +42,7 @@ void Board::ClearBoard()
     enPassant = Square(NS);
     fullMoveNumber = 1;
     halfMoveClock = 0;
+    Status();
 }
 
 SetSquares Board::Pieces(const Piece& p) const
@@ -85,6 +90,7 @@ Square Board::King(Color c) const
                 return Square(i, j);
 
     CRASH("Invalid board: No king(s)!");
+    return Square();
 }
 
 Piece Board::RemovePieceAt(const Square& s)
@@ -222,7 +228,6 @@ void Board::SetFEN(const std::string& fenStr)
     if (ws[2] != std::string::npos)
     {
         if (f[ws[2] + 1] != '-')
-            // TODO: Assert this is a regular square (not for instance z9)
             enPassant = Square(f.substr(ws[2] + 1, 2));
         else
             enPassant = Square(NS);
@@ -230,14 +235,21 @@ void Board::SetFEN(const std::string& fenStr)
     else
         return;
 
-    // TODO: Assert that there is a number (Enforce a number arg to stoi)
     if (ws[3] != std::string::npos)
-        halfMoveClock = stoi(f.substr(ws[3] + 1, ws[4] - ws[3] - 1));
+    {
+        std::string num = f.substr(ws[3] + 1, ws[4] - ws[3] - 1);
+        ASSERT(all_of(num.begin(), num.end(), ::isdigit), "Invalid FEN: Half-move clock must be a number!");
+        halfMoveClock = stoi(num);
+    }
     else
         return;
 
     if (ws[4] != std::string::npos)
-        fullMoveNumber = stoi(f.substr(ws[4] + 1, f.size() - ws[4] - 1));
+    {
+        std::string num = f.substr(ws[4] + 1, f.size() - ws[4] - 1);
+        ASSERT(all_of(num.begin(), num.end(), ::isdigit), "Invalid FEN: Full move number must be a number!");
+        fullMoveNumber = stoi(num);
+    }
 }
 
 std::string Board::CastlingRights() const
@@ -288,7 +300,8 @@ bool Board::HasLegalEnPassant() const
     if (enPassant.Id() != NS)
     {
         int file = enPassant.File();
-        int rank = turn == WHITE ? 4 : 3;
+        int rank = turn == WHITE ? 4 : 3;    
+
         if (file - 1 >= 0 && board[rank][file - 1] == (turn == WHITE ? 'P' : 'p'))
             return true;
         if (file + 1 < 8 && board[rank][file + 1] == (turn == WHITE ? 'P' : 'p'))
@@ -368,7 +381,7 @@ std::vector<Move> Board::PseudoLegalMoves() const
                 {
                     int mvRank = i + dyN[k];
                     int mvCol = j + dxN[k];
-                    if (Legal(mvRank) && Legal(mvCol))
+                    if (Legal(mvRank, mvCol))
                     {
                         char at = board[mvRank][mvCol];
                         if(at == '.' || (turn == WHITE ? islower(at) : isupper(at)))
@@ -392,7 +405,7 @@ std::vector<Move> Board::PseudoLegalMoves() const
                     {
                         mvRank += dy[k];
                         mvCol += dx[k];
-                        if (Legal(mvRank) && Legal(mvCol))
+                        if (Legal(mvRank, mvCol))
                         {
                             char at = board[mvRank][mvCol];
                             if (at == '.')
@@ -446,7 +459,7 @@ bool Board::IsAttackedBy(const Color& c, const Square& s) const
     {
         int mvRank = sqRank + dyN[i];
         int mvFile = sqFile + dxN[i];
-        if (Legal(mvRank) && Legal(mvFile) && board[mvRank][mvFile] == knight)
+        if (Legal(mvRank, mvFile) && board[mvRank][mvFile] == knight)
             return true;
     }
 
@@ -462,7 +475,7 @@ bool Board::IsAttackedBy(const Color& c, const Square& s) const
         {
             mvRank += dy[i];
             mvFile += dx[i];
-            if (Legal(mvRank) && Legal(mvFile))
+            if (Legal(mvRank, mvFile))
             {
                 if (i % 2 && (board[mvRank][mvFile] == bishop || board[mvRank][mvFile] == queen))
                     return true;
@@ -483,7 +496,7 @@ bool Board::IsAttackedBy(const Color& c, const Square& s) const
     {
         int mvRank = sqRank + dy[i];
         int mvFile = sqFile + dx[i];
-        if (Legal(mvRank) && Legal(mvFile) && board[mvRank][mvFile] == king)
+        if (Legal(mvRank, mvFile) && board[mvRank][mvFile] == king)
             return true;
     }
 
@@ -493,6 +506,96 @@ bool Board::IsAttackedBy(const Color& c, const Square& s) const
 bool Board::IsCheck() const
 {
     return IsAttackedBy(Switch(turn), King(turn));
+}
+
+void Board::Status()
+{
+    if (board == EmptyBoard)
+        status |= Empty;
+
+    int nrKW = 0, nrKB = 0;
+    int nrPW = 0, nrPB = 0;
+    int nrW = 0, nrB = 0;
+    for (int i = 0; i < 8; ++i)
+    {
+        for (int j = 0; j < 8; ++j)
+        {
+            if (PieceNames.find(toupper(board[i][j])) != std::string::npos)
+            {
+                if (isupper(board[i][j]))
+                    ++nrW;
+                else
+                    ++nrB;
+
+                switch (board[i][j])
+                {
+                case 'K':
+                    ++nrKW; break;
+                case 'k':
+                    ++nrKB; break;
+                case 'P':
+                    ++nrPW; break;
+                case 'p':
+                    ++nrPB; break;
+                }
+            }
+        }
+    }
+
+    if (nrKW == 0)
+        status |= NoWhiteKing;
+    if (nrKB == 0)
+        status |= NoBlackKing;
+    if (nrKW > 1 || nrKB > 1)
+        status |= TooManyKings;
+
+    // There can be no more than 16 pieces of any color.
+    if (nrW > 16)
+        status |= TooManyWhitePieces;
+    if (nrB > 16)
+        status |= TooManyBlackPieces;
+    // There can be no more than 8 pawns of any color.
+    if (nrPW > 8)
+        status |= TooManyWhitePawns;
+    if (nrPB > 8)
+        status |= TooManyBlackPawns;
+
+    // Pawns cannot be on the backrank.
+    if (any_of(board[0].begin(), board[0].end(), [](char x){return toupper(x) == 'P';}) ||
+        any_of(board[7].begin(), board[7].end(), [](char x){return toupper(x) == 'P';}))
+        status |= PawnsOnBackRank;
+
+    if (enPassant.Id() != NS)
+    {
+        // The en passant square must on the third or sixth rank.
+        if (enPassant.Rank() != (turn == WHITE ? 5 : 2))
+            status |= InvalidEpSquare;
+
+        // The last move must have been a double pawn push, so there must
+        // be a corresponding pawn on the fourth or fifth rank.
+        if (board[turn == WHITE ? 4 : 3][enPassant.File()] != (turn == WHITE ? 'p' : 'P'))
+            status |= InvalidEpSquare;
+
+        // The en passant and the second rank square must be empty.
+        if (board[enPassant.Rank()][enPassant.File()] != '.' ||
+            board[turn == WHITE ? 6 : 1][enPassant.File()] != '.')
+            status |= InvalidEpSquare;
+    }
+
+    // Side to move cannot be giving check.
+    if (IsAttackedBy(turn, King(Switch(turn))))
+        status |= OppositeCheck;
+
+    Square wK = King(WHITE), bK = King(BLACK);
+    // There can be no adjecent kings.
+    if (wK.Distance(bK) < 2)
+        status |= AdjacentKings;
+    
+}
+
+bool Board::IsValid() const
+{
+    return status == Valid;
 }
 
 Color Board::ToMove() const
@@ -509,7 +612,7 @@ std::ostream& operator<<(std::ostream& buf, const Board& b)
     buf << "EP: " << b.enPassant.Name() << "\t";
     buf << "To move: " << (b.turn == WHITE ? "w\t" : "b\t");
     buf << "HMC: " << b.halfMoveClock << "\t";
-    buf << "FMN: " << b.fullMoveNumber;
+    buf << "FMN: " << b.fullMoveNumber << "\t";
     buf << "Castling: " <<  b.CastlingRights() << "\n";
 
     return buf;        

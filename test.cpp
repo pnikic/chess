@@ -132,7 +132,8 @@ void Test::test2()
         if (cnt)
             std::cout << std::endl;
         std::cout << std::endl;
-            
+
+        ASSERT(brd.IsValid(), "Board::IsValid, Board::Status");
     }
     std::cout << std::endl << "Test #2 succesfully finished.\n" << std::endl;
 

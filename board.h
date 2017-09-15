@@ -33,7 +33,7 @@ public:
     // Returns the piece type at the given square.
     PieceType PieceTypeAt(const Square& s) const;
     
-    // Finds the king square of the given side.
+    // Finds the king square of the given side. Otherwise returns a null square.
     Square King(Color c) const;
     
     // Removes the piece from the given square. Returns the Piece or None if the square was already empty.
@@ -53,7 +53,6 @@ public:
 
     // Checks if the given side can castle (false = queenside, true = kingside)
     bool CanCastle(Color c, bool side) const;
-    // TODO: Assert regularity of position (other king not in check)
 
     // Checks if the given side attacks the given square.
     // Pinned pieces still count as attackers.
@@ -61,7 +60,6 @@ public:
 
     // Returns if the side to move is in check.
     bool IsCheck() const;
-    //TODO: Assert regularity of position (no adjacent kings)
 
     // Checks if the side to move has a legal en passant.
     bool HasLegalEnPassant() const;
@@ -71,7 +69,12 @@ public:
     // Null moves are not pseudo legal. Castling moves are only included if they are completely legal.
     std::vector<Move> PseudoLegalMoves() const;
     //TODO: Legalness question, pins etc.
-    //TODO: Assert regularity of position (no pawns on ranks 0 and 7)
+
+    // Gets a bitmask of possible problems with the position.
+    // Move making, generation and validation are only guaranteed to work on a valid board.
+    void Status();
+
+    bool IsValid() const;
 
     // Returns the side to move.
     Color ToMove() const;
@@ -85,6 +88,7 @@ private:
     uint8_t castlingRights; // bitmask (0 0 0 0 q k Q K)
     int fullMoveNumber;
     int halfMoveClock;
+    int status;
     
     std::vector<Move> moveStack;
     std::vector<Board> boardStack;

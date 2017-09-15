@@ -60,10 +60,12 @@ Color Switch(Color c)
     return static_cast<Color>(1 - c);
 }
 
-bool Legal(int elem)
+bool Legal(int a)
 {
-    if (elem >= 0 && elem < 8)
-        return true;
-    else
-        return false;
+    return a >= 0 && a < 8;
+}
+
+bool Legal(int a, int b)
+{
+    return Legal(a) && Legal(b);
 }
