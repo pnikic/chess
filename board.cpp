@@ -439,6 +439,60 @@ std::vector<Move> Board::PseudoLegalMoves() const
     return res;
 }
 
+bool Board::IsPinned(const Color& c, const Square& s) const
+{
+    char at = board[s.Rank()][s.File()];
+    if (at == '.' || (c == WHITE ? islower(at) : isupper(at)))
+        return false;
+    
+    Square king = King(c);
+    if (king.Id() == NS)
+        return false;
+
+    int d1 = s.File() - king.File();
+    int d2 = s.Rank() - king.Rank();
+    int dir;
+    if (d1 == 0 && d2 > 0)
+        dir = 2;
+    else if (d1 == 0 && d2 < 0)
+        dir = 6;
+    else if (d2 == 0 && d1 > 0)
+        dir = 4;
+    else if (d2 == 0 && d1 < 0)
+        dir = 0;
+    else if (d1 > 0 && d2 > 0 && d1 == d2)
+        dir = 3;
+    else if (d1 > 0 && d2 < 0 && d1 == -d2)
+        dir = 5;
+    else if (d1 < 0 && d2 > 0 && d1 == -d2)
+        dir = 1;
+    else if (d1 < 0 && d2 < 0 && d1 == d2)
+        dir = 7;
+    else
+        return false;
+
+    char piece = dir % 2 ? (c == BLACK ? 'B' : 'b') : (c == BLACK ? 'R' : 'r');
+    char queen = c == BLACK ? 'Q' : 'q';
+    int mvRank = king.Rank() + dy[dir], mvFile = king.File() + dx[dir];
+
+    std::string path;
+    while (Legal(mvFile, mvRank))
+    {
+        path += board[mvRank][mvFile];
+        mvFile += dx[dir];
+        mvRank += dy[dir];
+    }
+
+    char pinned = path.find_first_not_of('.');
+    char pinner = path.find_first_not_of('.', pinned + 1);
+
+    if (pinner != std::string::npos && pinned != std::string::npos &&
+        (path[pinner] == queen || path[pinner] == piece))
+        return true;
+
+    return false;
+}
+
 bool Board::IsAttackedBy(const Color& c, const Square& s) const
 {
     if (s.Id() == NS)

@@ -70,6 +70,9 @@ public:
     std::vector<Move> PseudoLegalMoves() const;
     //TODO: Legalness question, pins etc.
 
+    // Detects if the given square is pinned to the king of the given color.
+    bool IsPinned(const Color& c, const Square& s) const;
+
     // Gets a bitmask of possible problems with the position.
     // Move making, generation and validation are only guaranteed to work on a valid board.
     void Status();

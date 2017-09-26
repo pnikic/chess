@@ -1,13 +1,17 @@
 #include "test.h"
 
-Test::Test() : testFen{"r1bq1b1r/ppp2kpp/2n5/3np3/2B5/8/PPPP1PPP/RNBQK2R w KQ - 0 7",
+Test::Test() : test2Fen{"r1bq1b1r/ppp2kpp/2n5/3np3/2B5/8/PPPP1PPP/RNBQK2R w KQ - 0 7",
         "rnbqk1nr/ppp2ppp/8/4P3/1BP5/8/PP2K1PP/RN1Q1BnR w kq - 0 8",
         "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3",
         "rnbqkbnr/p6p/2pp2p1/Pp2pp2/4P1P1/2P2N2/1P1P1P1P/RNBQKB1R w KQkq b6 0 7",
         "             rn1qkbn1/pP5r/3pN1p1/4ppPp/4P3/2Np4/1p1KBP1P/R1BQ3R     b   q    - 0   17      ",
         "r3k2r/8/2Q5/8/8/8/8/4K3 b kq -",
         "4k3/6q1/8/8/8/8/8/R3K2R w KQ -",
-        "4k3/6q1/8/8/8/8/8/RN2K2R w KQ"}
+        "4k3/6q1/8/8/8/8/8/RN2K2R w KQ"},
+               test3Fen{"rnb1k2r/ppp2ppp/4p3/3p4/1bPPnB1q/2N1P3/PPQ2PPP/R3KBNR w KQkq -",
+                       "r1bqk2r/ppp1n1pp/2nb4/1B1p1P2/3p4/5N2/PPP2PPP/RNBQR1K1 b Qkq - 0 1",
+                       "6k1/pp1n2pp/3bN3/3P1p2/1PP5/4rBqr/P2Q2P1/R4RK1 w - - 0 27",
+                       "4k3/1p6/8/4q3/8/8/1P6/4RK2 b - - 0 1"}
 {
     e4 = Square(3, 4);
     d5 = Square("d5");
@@ -93,9 +97,10 @@ void Test::test2()
                               "1......1\n1......1\n1......1\n1......1\n1......1\n1......1\n1..111.1\n.111111.\n",
                               "1......1\n1......1\n1......1\n1......1\n1......1\n1.1....1\n1..111.1\n.1.1111.\n"},
                              {"n", "y", "n", "n", "n", "y", "n", "n"}};
+    
     for (int i = 0; i < 8; ++i)
     {
-        brd = Board(testFen[i]);
+        brd = Board(test2Fen[i]);
         ASSERT(brd.FEN() == sol[0][i], "Board::SetFEN, Board::FEN");
         ASSERT(brd.CastlingRights() == sol[1][i], "Board::CastlingRights");
         ASSERT(brd.King(WHITE).Name() == sol[2][i], "Board::King");
@@ -136,7 +141,22 @@ void Test::test2()
         ASSERT(brd.IsValid(), "Board::IsValid, Board::Status");
     }
     std::cout << std::endl << "Test #2 succesfully finished.\n" << std::endl;
+}
 
+void Test::test3()
+{
+    std::cout << "Test #3 started..." << std::endl;
+
+    for (int i = 0; i < 4; ++i)
+    {
+        Board brd(test3Fen[i]);
+        SetSquares ss;
+        for (int i = 0; i < 64; ++i)
+            if (brd.IsPinned(brd.ToMove(), Square(ToSquare(i))))
+                ss.Add(Square(ToSquare(i)));
+
+        std::cout << ss << std::endl << std::endl;
+    }
 }
     
 int main()
@@ -144,6 +164,7 @@ int main()
     Test T;
     T.test1();
     T.test2();
+    T.test3();
 
-    // More tests: Board::PseudoLegalMoves, Board::Pieces, Board::ClearBoard, Board::CanCastleQS / KS
+    // More tests: Board::PseudoLegalMoves, Board::Pieces, Board::ClearBoard, Board::CanCastleQS / KS, IsPinned
 }
