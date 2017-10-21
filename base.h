@@ -31,7 +31,7 @@ enum SquareType { A1 = 0, B1 = 1, C1 = 2, D1 = 3, E1 = 4, F1 = 5, G1 = 6, H1 = 7
 enum Status { Valid = 0, NoWhiteKing = 1 << 0, NoBlackKing = 1 << 1, TooManyKings = 1 << 2,
               TooManyWhitePawns = 1 << 3, TooManyBlackPawns = 1 << 4, PawnsOnBackRank = 1 << 5,
               TooManyWhitePieces = 1 << 6, TooManyBlackPieces = 1 << 7, AdjacentKings = 1 << 8,
-              InvalidEpSquare = 1 << 9, OppositeCheck = 1 << 10, Empty = 1 << 11};
+              InvalidEpSquare = 1 << 9, OppositeCheck = 1 << 10, Empty = 1 << 11 };
 
 typedef std::array<std::string, 8> BoardArray;
 

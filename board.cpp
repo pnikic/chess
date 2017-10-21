@@ -297,16 +297,16 @@ bool Board::CanCastle(Color c, bool side) const
 
 bool Board::HasLegalEnPassant() const
 {
-    if (enPassant.Id() != NS)
-    {
-        int file = enPassant.File();
-        int rank = turn == WHITE ? 4 : 3;    
+    if (enPassant.Id() == NS)
+        return false;
+    
+    int file = enPassant.File();
+    int rank = turn == WHITE ? 4 : 3;    
 
-        if (file - 1 >= 0 && board[rank][file - 1] == (turn == WHITE ? 'P' : 'p'))
-            return true;
-        if (file + 1 < 8 && board[rank][file + 1] == (turn == WHITE ? 'P' : 'p'))
-            return true;
-    }
+    if (file - 1 >= 0 && board[rank][file - 1] == (turn == WHITE ? 'P' : 'p'))
+        return true;
+    if (file + 1 < 8 && board[rank][file + 1] == (turn == WHITE ? 'P' : 'p'))
+        return true;
 
     return false;
 }
@@ -643,8 +643,7 @@ void Board::Status()
     Square wK = King(WHITE), bK = King(BLACK);
     // There can be no adjecent kings.
     if (wK.Distance(bK) < 2)
-        status |= AdjacentKings;
-    
+        status |= AdjacentKings;    
 }
 
 bool Board::IsValid() const
