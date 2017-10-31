@@ -301,7 +301,7 @@ bool Board::HasLegalEnPassant() const
         return false;
     
     int file = enPassant.File();
-    int rank = turn == WHITE ? 4 : 3;    
+    int rank = turn == WHITE ? 4 : 3;
 
     if (file - 1 >= 0 && board[rank][file - 1] == (turn == WHITE ? 'P' : 'p'))
         return true;
@@ -555,6 +555,14 @@ bool Board::IsAttackedBy(const Color& c, const Square& s) const
     }
 
     return false;
+}
+
+bool Board::IsEnPassant(const Move& m) const
+{
+    Square f = m.From(), t = m.To();
+    return board[f.Rank()][f.File()] == (turn == WHITE ? 'P' : 'p') &&
+        board[f.Rank()][t.File()] == (turn == WHITE ? 'p' : 'P') &&
+        t == enPassant && abs(f.File() - t.File()) == 1;
 }
 
 bool Board::IsCheck() const

@@ -63,6 +63,16 @@ std::string Square::Name() const
         return "00";
 }
 
+bool Square::operator==(const Square& sq)
+{
+    return id == sq.Id();
+}
+
+bool Square::operator!=(const Square& sq)
+{
+    return id != sq.Id();
+}
+
 std::ostream& operator<<(std::ostream& buf, const Square& sq)
 {
     BoardArray Board = EmptyBoard;

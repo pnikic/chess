@@ -51,3 +51,13 @@ std::string Move::UCI() const
     return from.Name() + to.Name() +
         (promotion != NONE ? std::string(1, tolower(PieceNames[promotion])) : "");
 }
+
+Square Move::From() const
+{
+    return from;
+}
+
+Square Move::To() const
+{
+    return to;
+}

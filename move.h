@@ -18,6 +18,10 @@ public:
     
     std::string UCI() const;
 
+    Square From() const;
+
+    Square To() const;
+
 private:
     Square from;
     Square to;

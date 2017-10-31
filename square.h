@@ -27,6 +27,10 @@ public:
     int Distance(const Square& s) const;
     
     std::string Name() const;
+
+    bool operator==(const Square& sq);
+
+    bool operator!=(const Square& sq);
     
     friend std::ostream& operator<<(std::ostream& buf, const Square& sq);
 
