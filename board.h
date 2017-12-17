@@ -54,12 +54,20 @@ public:
     // Checks if the given side can castle (false = queenside, true = kingside)
     bool CanCastle(Color c, bool side) const;
 
-    // Checks if the given side attacks the given square.
+    // Returns the number of attackers of the given square from the given side.
     // Pinned pieces still count as attackers.
-    bool IsAttackedBy(const Color& c, const Square& s) const;
+    int IsAttackedBy(const Color& c, const Square& s) const;
 
     // Returns if the side to move is in check.
     bool IsCheck() const;
+
+    // Checks if the piece(or pawn) from the first square is attacking the second square.
+    // Optionally, the attacking piece can be specified.
+    bool IsAttacking(const Square& s, const Square& t, const Piece& p = Piece()) const;
+
+    // Checks if the piece(or pawn) from the first square can move to the second square.
+    // Optinally, the moving piece can be specified.
+    bool CanMove(const Square&s, const Square& t, const Piece& p = Piece()) const;
 
     // Checks if the side to move has a legal en passant.
     bool HasLegalEnPassant() const;
@@ -73,7 +81,26 @@ public:
     // Detects if the given square is pinned to the king of the given color.
     bool IsPinned(const Color& c, const Square& s) const;
 
+    // Checks if the given psuedo-legal move is an en passant capture.
     bool IsEnPassant(const Move& m) const;
+
+    // Checks if the given psuedo-legal move is a capture.
+    bool IsCapture(const Move& m) const;
+
+    // Checks if the given psuedo-legal move is a pawn move or a capture.
+    bool IsZeroing(const Move& m) const;
+
+    // Checks if the given psuedo-legal move is castling.
+    bool IsCastling(const Move& m) const;
+
+    // Checks if the given pseudo-legal move is kingside castling.
+    bool IsKSCastling(const Move& m) const;
+
+    // Checks if the given pseudo-legal move is queenside castling.
+    bool IsQSCastling(const Move& m) const;
+
+    // Returns the SAN of the given a pseudo-legal move.
+    std::string SAN(const Move& m) const;
 
     // Gets a bitmask of possible problems with the position.
     // Move making, generation and validation are only guaranteed to work on a valid board.

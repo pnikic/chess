@@ -449,26 +449,8 @@ bool Board::IsPinned(const Color& c, const Square& s) const
     if (king.Id() == NS)
         return false;
 
-    int d1 = s.File() - king.File();
-    int d2 = s.Rank() - king.Rank();
-    int dir;
-    if (d1 == 0 && d2 > 0)
-        dir = 2;
-    else if (d1 == 0 && d2 < 0)
-        dir = 6;
-    else if (d2 == 0 && d1 > 0)
-        dir = 4;
-    else if (d2 == 0 && d1 < 0)
-        dir = 0;
-    else if (d1 > 0 && d2 > 0 && d1 == d2)
-        dir = 3;
-    else if (d1 > 0 && d2 < 0 && d1 == -d2)
-        dir = 5;
-    else if (d1 < 0 && d2 > 0 && d1 == -d2)
-        dir = 1;
-    else if (d1 < 0 && d2 < 0 && d1 == d2)
-        dir = 7;
-    else
+    int dir = king.Direction(s);
+    if (dir == -1)
         return false;
 
     char piece = dir % 2 ? (c == BLACK ? 'B' : 'b') : (c == BLACK ? 'R' : 'r');
@@ -493,11 +475,12 @@ bool Board::IsPinned(const Color& c, const Square& s) const
     return false;
 }
 
-bool Board::IsAttackedBy(const Color& c, const Square& s) const
+int Board::IsAttackedBy(const Color& c, const Square& s) const
 {
     if (s.Id() == NS)
         return false;
-   
+
+    int att = 0;
     int sqRank = s.Rank(), sqFile = s.File();
     int pawnRank = sqRank + (c == WHITE ? -1 : 1);
     // Pawn attacks
@@ -505,7 +488,7 @@ bool Board::IsAttackedBy(const Color& c, const Square& s) const
     if (pawnRank >= 0 && pawnRank < 8 &&
         ((sqFile > 0 && board[pawnRank][sqFile - 1] == pawn) ||
          (sqFile < 7 && board[pawnRank][sqFile + 1] == pawn)))
-        return true;
+        ++att;
 
     // Knight attacks
     char knight = c == WHITE ? 'N' : 'n';
@@ -514,7 +497,7 @@ bool Board::IsAttackedBy(const Color& c, const Square& s) const
         int mvRank = sqRank + dyN[i];
         int mvFile = sqFile + dxN[i];
         if (Legal(mvRank, mvFile) && board[mvRank][mvFile] == knight)
-            return true;
+            ++att;
     }
 
     // Bishop, rook and queen attacks
@@ -532,9 +515,9 @@ bool Board::IsAttackedBy(const Color& c, const Square& s) const
             if (Legal(mvRank, mvFile))
             {
                 if (i % 2 && (board[mvRank][mvFile] == bishop || board[mvRank][mvFile] == queen))
-                    return true;
+                    ++att;
                 else if (!(i % 2) && (board[mvRank][mvFile] == rook || board[mvRank][mvFile] == queen))
-                    return true;
+                    ++att;
 
                 if (board[mvRank][mvFile] != '.')
                     possible = false;
@@ -551,10 +534,62 @@ bool Board::IsAttackedBy(const Color& c, const Square& s) const
         int mvRank = sqRank + dy[i];
         int mvFile = sqFile + dx[i];
         if (Legal(mvRank, mvFile) && board[mvRank][mvFile] == king)
-            return true;
+            ++att;
     }
 
-    return false;
+    return att;
+}
+
+bool Board::IsCheck() const
+{
+    return IsAttackedBy(Switch(turn), King(turn));
+}
+
+bool Board::IsAttacking(const Square& s, const Square& t, const Piece &p /*= Piece()*/) const
+{
+    char at = (p.IsNone() ? board[s.Rank()][s.File()] : p.Symbol()), atUpper = toupper(at);
+    if (s.Id() == NS || t.Id() == NS || at == '.')
+        return false;
+
+    int rankDist = s.Rank() - t.Rank();
+    int fileDist = abs(s.File() - t.File());
+    if (at == 'P')
+        return rankDist == -1 && fileDist == 1;
+    if (at == 'p')
+        return rankDist == 1 && fileDist == 1;
+    
+    rankDist = abs(rankDist);
+    if (atUpper == 'N')
+        return (rankDist == 2 && fileDist == 1) || (rankDist == 1 && fileDist == 2);
+    
+    if (atUpper == 'K')
+        return s.Distance(t) == 1;
+
+    int dir = s.Direction(t);
+    if (dir == -1 || (atUpper == 'B' && !(dir % 2)) || (atUpper == 'R' && (dir % 2)))
+        return false;
+    
+    int mvRank = s.Rank() + dy[dir], mvFile = s.File() + dx[dir];
+    while (Legal(mvFile, mvRank) && board[mvRank][mvFile] == '.' && Square(mvRank, mvFile) != t)
+        mvRank += dy[dir], mvFile += dx[dir];
+
+    return Square(mvRank, mvFile) == t;
+}
+
+bool Board::CanMove(const Square& s, const Square& t, const Piece& p /*= Piece()*/) const
+{
+    char at = (p.IsNone() ? board[s.Rank()][s.File()] : p.Symbol()), atUpper = toupper(at);
+    if (s.Id() == NS || t.Id() == NS || at == '.')
+        return false;
+
+    int rankDist = s.Rank() - t.Rank();
+    int fileDist = abs(s.File() - t.File());
+    if (at == 'P')
+        return (rankDist == -1 || (rankDist == -2 && s.Rank() == 1)) && fileDist == 0;
+    if (at == 'p')
+        return (rankDist == 1 || (rankDist == 2 && s.Rank() == 6)) && fileDist == 0;
+
+    return IsAttacking(s, t, p);
 }
 
 bool Board::IsEnPassant(const Move& m) const
@@ -565,9 +600,173 @@ bool Board::IsEnPassant(const Move& m) const
         t == enPassant && abs(f.File() - t.File()) == 1;
 }
 
-bool Board::IsCheck() const
+bool Board::IsCapture(const Move& m) const
 {
-    return IsAttackedBy(Switch(turn), King(turn));
+    Square f = m.From(), t = m.To();
+    char fPiece = board[f.Rank()][f.File()], tPiece = board[t.Rank()][t.File()];
+    return ((turn == WHITE ? isupper(fPiece) : islower(fPiece)) &&
+            (turn == WHITE ? islower(tPiece) : isupper(tPiece))) ||
+        IsEnPassant(m);
+}
+
+bool Board::IsZeroing(const Move& m) const
+{
+    Square f = m.From();
+    char fPiece = board[f.Rank()][f.File()];
+    return IsCapture(m) || fPiece == (turn == WHITE ? 'P' : 'p');
+}
+
+bool Board::IsCastling(const Move& m) const
+{
+    // Note that a castling move is pseudolegal iff it is completely legal.
+    Square f = m.From(), t = m.To();
+    char fPiece = board[f.Rank()][f.File()];
+    return fPiece == (turn == WHITE ? 'K' : 'k') && f.Distance(t) > 1;
+}
+
+bool Board::IsKSCastling(const Move& m) const
+{
+    return IsCastling(m) && m.To().File() == 6;
+}
+
+bool Board::IsQSCastling(const Move &m) const
+{
+    return IsCastling(m) && m.To().File() == 2;
+}
+
+std::string Board::SAN(const Move& m) const
+{
+    std::string SAN;
+    Square f = m.From(), t = m.To();
+    char fPiece = board[f.Rank()][f.File()];
+    
+    if (toupper(fPiece) == 'P')
+    {
+        if (IsCapture(m))
+            SAN = std::string(1, f.Name()[0]) + "x" + t.Name();
+        else
+            SAN = t.Name();
+
+        if (m.Promotion() != NONE)
+            SAN += "=" + std::string(1, PieceNames[m.Promotion()]);
+    }
+    else if (IsKSCastling(m))
+        SAN = "O-O";
+    else if (IsQSCastling(m))
+        SAN = "O-O-O";
+    else
+    {
+        // To resolve move ambiguities (e.g. Nge2, Bgd5, Qa2d5 etc.)
+        std::string fP = std::string(1, toupper(fPiece));
+        std::string x = IsCapture(m) ? "x" : "";
+        std::vector<Square> A;
+        for (int j = 0; j < 8; ++j)
+        {
+            for (int i = 0; i < 8; ++i)
+            {
+                Square sq = Square(i, j);
+                if (board[i][j] == fPiece && sq != f && !IsPinned(turn, sq) && IsAttacking(sq, t))
+                    A.push_back(sq);
+            }
+        }
+
+        if (!A.size())
+            SAN = fP + x + t.Name();
+        else if (find_if(A.begin(), A.end(), [&](Square sq){return sq.File() == f.File();}) == A.end())
+            SAN = fP + std::string(1, f.Name()[0]) + x + t.Name();
+        else if (find_if(A.begin(), A.end(), [&](Square sq){return sq.Rank() == f.Rank();}) == A.end())
+            SAN = fP + std::string(1, f.Name()[1]) + x + t.Name();
+        else
+            SAN = fP + f.Name() + x + t.Name();
+    }
+
+    Square oppKing = King(Switch(turn));
+    char oKing = turn == WHITE ? 'k' : 'K';
+    if (m.Promotion() != NONE)
+        fPiece = turn == WHITE ? PieceNames[m.Promotion()] : tolower(PieceNames[m.Promotion()]);
+
+    // After the move is played, the opposite side might end up in check (e.g. discovery)
+    Board after(*this);
+    after.SetPieceAt(t, Piece(fPiece));
+    after.RemovePieceAt(f);
+    int nrAttackers = after.IsAttackedBy(turn, oppKing);
+
+    if (nrAttackers)
+    {
+        // Check for checkmate
+        bool flag = true;
+        if (nrAttackers == 1)
+        {
+            // Find direction and square of the attacker
+            int dir; Square Att;
+            for (int i = 0; i < 8; ++i)
+                for (int j = 0; j < 8; ++j)
+                    if (after.IsAttacking(Square(i, j), oppKing))
+                        dir = oppKing.Direction(Square(i,j)), Att = Square(i, j);
+
+            if (dir != -1)
+            {
+                // Interposition (only unpinned pieces or pawns can interpose)
+                int mvRank = oppKing.Rank() + dy[dir], mvFile = oppKing.File() + dx[dir];
+                while (flag && Legal(mvRank, mvFile) && Square(mvRank, mvFile) != Att)
+                {
+                    char king = turn == BLACK ? 'K' : 'k';
+                    for (int i = 0; i < 8 && flag; ++i)
+                    {
+                        for (int j = 0; j < 8 && flag; ++j)
+                        {
+                            char at = board[i][j];
+                            if ((turn == BLACK ? isupper(at) : islower(at)) && at != king &&
+                                after.CanMove(Square(i, j), Square(mvRank, mvFile)) &&
+                                !after.IsPinned(Switch(turn), Square(i, j)))
+                                flag = false;
+                        }
+                    }
+
+                    mvRank += dy[dir]; mvFile += dx[dir];
+                }
+            }
+
+            // Can the checking piece be captured?
+            for (int i = 0; i < 8 && flag; ++i)
+            {
+                for (int j = 0; j < 8 && flag; ++j)
+                {
+                    char at = board[i][j];
+                    if (at != oKing && (turn == WHITE ? islower(at) : isupper(at)) &&
+                        after.IsAttacking(Square(i, j), Att) && !after.IsPinned(Switch(turn), Square(i, j)))
+                        flag = false;
+                }
+            }
+        
+            // The king can only capture an undefended piece.
+            if (flag && after.IsAttacking(oppKing, Att) && !after.IsAttackedBy(turn, Att))
+                flag = false;
+        }
+        
+        // Can the king escape?
+        for (int i = 0; i < 8 && flag; ++i)
+        {
+            int eRank = oppKing.Rank() + dy[i], eFile = oppKing.File() + dx[i];
+            if (!Legal(eRank, eFile))
+                continue;
+            
+            Square e(eRank, eFile);
+            if (board[eRank][eFile] != '.' || e == t)
+                continue;
+
+            // How would the board then look like?
+            Board tmp(after);
+            tmp.SetPieceAt(e, Piece(oKing));
+            tmp.RemovePieceAt(oppKing);
+
+            if (!tmp.IsAttackedBy(turn, e))
+                flag = false;
+        }
+        SAN += flag ? "#" : "+";
+    }
+
+    return SAN;
 }
 
 void Board::Status()

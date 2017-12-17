@@ -19,6 +19,8 @@ public:
     
     //char UnicodeSymbol() const;
 
+    bool IsNone() const;
+
 private:
     PieceType id;
     Color color;

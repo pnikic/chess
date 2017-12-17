@@ -35,3 +35,8 @@ char Piece::Symbol() const
             return color ? tolower(PieceNames[i]) : PieceNames[i];
     CRASH("Invalid piece type!");
 }
+
+bool Piece::IsNone() const
+{
+    return id == NONE;
+}

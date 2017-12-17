@@ -50,9 +50,33 @@ SquareType Square::Id() const
 int Square::Distance(const Square& s) const
 {
     ASSERT(id <= H8 && s.id <= H8, "Invalid squares!");
-    int rankDist = ::abs(Rank() - s.Rank());
-    int fileDist = ::abs(File() - s.File());
+    int rankDist = abs(Rank() - s.Rank());
+    int fileDist = abs(File() - s.File());
     return std::max(rankDist, fileDist);
+}
+
+int Square::Direction(const Square& s) const
+{
+    ASSERT(id <= H8 && s.id <= H8, "Invalid squares!");
+    int d1 = s.File() - File(), d2 = s.Rank() - Rank();
+    if (d1 == 0 && d2 > 0)
+        return 2;
+    if (d1 == 0 && d2 < 0)
+        return 6;
+    if (d2 == 0 && d1 > 0)
+        return 4;
+    if (d2 == 0 && d1 < 0)
+        return 0;
+    if (d1 > 0 && d2 > 0 && d1 == d2)
+        return 3;
+    if (d1 > 0 && d2 < 0 && d1 == -d2)
+        return 5;
+    if (d1 < 0 && d2 > 0 && d1 == -d2)
+        return 1;
+    if (d1 < 0 && d2 < 0 && d1 == d2)
+        return 7;
+
+    return -1;
 }
 
 std::string Square::Name() const

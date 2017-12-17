@@ -61,3 +61,8 @@ Square Move::To() const
 {
     return to;
 }
+
+PieceType Move::Promotion() const
+{
+    return promotion;
+}

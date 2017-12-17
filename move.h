@@ -22,6 +22,8 @@ public:
 
     Square To() const;
 
+    PieceType Promotion() const;
+
 private:
     Square from;
     Square to;

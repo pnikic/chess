@@ -11,7 +11,11 @@ Test::Test() : test2Fen{"r1bq1b1r/ppp2kpp/2n5/3np3/2B5/8/PPPP1PPP/RNBQK2R w KQ -
                test3Fen{"rnb1k2r/ppp2ppp/4p3/3p4/1bPPnB1q/2N1P3/PPQ2PPP/R3KBNR w KQkq -",
                        "r1bqk2r/ppp1n1pp/2nb4/1B1p1P2/3p4/5N2/PPP2PPP/RNBQR1K1 b Qkq - 0 1",
                        "6k1/pp1n2pp/3bN3/3P1p2/1PP5/4rBqr/P2Q2P1/R4RK1 w - - 0 27",
-                       "4k3/1p6/8/4q3/8/8/1P6/4RK2 b - - 0 1"}
+                       "4k3/1p6/8/4q3/8/8/1P6/4RK2 b - - 0 1",
+                       "1r4Q1/Pqkb4/1pnr4/2P1P3/8/2N5/6Q1/R3K3 w Q -",
+                       "r4bkb/1q6/8/1n6/4R3/1K3b1r/3r4/2r5 b - -",
+                       "6n1/5P1k/7r/8/2B5/1P6/PBP5/1K6 w - -",
+                       "7B/1qR5/8/1n6/4R3/1K3b1r/8/7k b - -"}
 {
     e4 = Square(3, 4);
     d5 = Square("d5");
@@ -130,7 +134,8 @@ void Test::test2()
         std::cout << brd << std::endl;
         for (auto& move : brd.PseudoLegalMoves())
         {
-            std::cout << " " << move.UCI();
+            //std::cout << " " << move.UCI();
+            std::cout << " " << brd.SAN(move);
             if (++cnt > 4)
                 cnt = 0, std::cout << std::endl;
         }
@@ -147,7 +152,7 @@ void Test::test3()
 {
     std::cout << "Test #3 started..." << std::endl;
 
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 8; ++i)
     {
         Board brd(test3Fen[i]);
         SetSquares ss;
@@ -158,13 +163,33 @@ void Test::test3()
         std::cout << ss << std::endl << std::endl;
     }
 }
+
+void Test::test4()
+{
+    for (int i = 0; i < 8; ++i)
+    {
+        brd = Board(test3Fen[i]);
+        int cnt = 0;
+        std::cout << brd << std::endl;
+        for (auto& move : brd.PseudoLegalMoves())
+        {            
+            std::cout << " " << brd.SAN(move);
+            if (++cnt > 4)
+                cnt = 0, std::cout << std::endl;
+        }
+        if (cnt)
+            std::cout << std::endl;
+        std::cout << std::endl;
+    }
+}
     
 int main()
 {
     Test T;
-    T.test1();
-    T.test2();
-    T.test3();
-
+    //T.test1();
+    //T.test2();
+    //T.test3();
+    T.test4();
+    
     // More tests: Board::PseudoLegalMoves, Board::Pieces, Board::ClearBoard, Board::CanCastleQS / KS, IsPinned
 }

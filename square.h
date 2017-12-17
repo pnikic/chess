@@ -12,7 +12,7 @@ public:
     
     Square(SquareType s);
     
-    // Constructs Square from string (e.g. 'g6')
+    // Constructs a Square from string (e.g. 'g6').
     Square(const std::string& s);
     
     Square(const Square& s);
@@ -23,8 +23,12 @@ public:
     
     SquareType Id() const;
 
-    //Distance to another square in king moves
+    // Returns the distance to another square in king moves.
     int Distance(const Square& s) const;
+
+    // Checks if the square lies on the same rank / file / diagonal with another square.
+    // If it does, returns the direction index, otherwise -1.
+    int Direction(const Square& s) const;
     
     std::string Name() const;
 
