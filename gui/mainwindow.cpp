@@ -35,7 +35,7 @@ void MainWindow::InitPieces(const QString& s)
 
     for (int i = 0; i < 2; ++i)
         for (int j = 0; j < 6; ++j)
-            pixmapPieces[i * 6 + j] = QPixmap("/home/rickpa/Qt/Ch/pieces/" + s + "/" + col[i] + nam[j] + ".png").scaled(QSize(sqSize, sqSize));
+            pixmapPieces[i * 6 + j] = QPixmap("../gui/pieces/" + s + "/" + col[i] + nam[j] + ".png").scaled(QSize(sqSize, sqSize));
 }
 
 void MainWindow::SetFEN()

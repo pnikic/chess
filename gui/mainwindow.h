@@ -7,7 +7,7 @@
 #include <QGraphicsRectItem>
 #include <QPixmap>
 #include <QClipboard>
-#include "/home/rickpa/Hacking/ChApp/base/board.h"
+#include "board.h"
 
 namespace Ui {
 class MainWindow;
