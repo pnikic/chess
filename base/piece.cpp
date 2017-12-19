@@ -40,3 +40,13 @@ bool Piece::IsNone() const
 {
     return id == NONE;
 }
+
+PieceType Piece::Type() const
+{
+    return id;
+}
+
+Color Piece::Side() const
+{
+    return color;
+}

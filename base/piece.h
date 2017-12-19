@@ -10,7 +10,7 @@ public:
     
     Piece(PieceType type, Color c);
     
-    // Constructs Piece from a char (e.g. 'k' or 'P');
+    // Constructs Piece from a char (e.g. 'k' or 'P').
     Piece(char c);
     
     Piece(const Piece& p);
@@ -20,6 +20,10 @@ public:
     //char UnicodeSymbol() const;
 
     bool IsNone() const;
+
+    PieceType Type() const;
+
+    Color Side() const;
 
 private:
     PieceType id;
