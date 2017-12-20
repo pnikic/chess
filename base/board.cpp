@@ -158,20 +158,26 @@ std::string Board::FEN() const
 
 void Board::SetFEN(const std::string& fenStr)
 {
+    // In case fenStr represents an invalid FEN, we will not update *this.
+    BoardArray boardB;
+    Square enPassantB;
+    Color turnB;
+    uint8_t castlingRightsB;
+    int halfMoveClockB;
     std::string f = trim(fenStr);
     f = reduce(f);
 
-    board = EmptyBoard;
+    boardB = EmptyBoard;
     size_t ws[5];
     int i = 0;
     do
         ws[i] = f.find(' ', (i ? ws[i - 1] + 1 : 0));
     while (ws[i] != std::string::npos && ++i < 5);
 
-    ASSERT(ws[0] != std::string::npos,
-           "Invalid FEN: Missing whitespace after piece placement!");
-    ASSERT(std::count(f.begin(), f.end(), '/') == 7,
-           "Invalid FEN: Input must containt seven '/' characters!");
+    if (ws[0] == std::string::npos)
+        throw Exception("Invalid FEN: Missing whitespace after piece placement!");
+    if (std::count(f.begin(), f.end(), '/') != 7)
+        throw Exception("Invalid FEN: Input must containt seven '/' characters!");
     
     size_t it = 0;
     for (int i = 0; i < 8; ++i)
@@ -184,22 +190,23 @@ void Board::SetFEN(const std::string& fenStr)
             size_t let = PieceNames.find(toupper(f[it]));
 
             if (let != std::string::npos)
-                board[7 - i][to8++] = f[it];
+                boardB[7 - i][to8++] = f[it];
             else if (num != std::string::npos)
                 to8 += num + 1;
             else
-                CRASH("Invalid FEN: Irregular letter or number in the piece placement!");
+                throw Exception("Invalid FEN: Irregular letter or number in the piece placement!");
 
             it++;
         }
 
-        ASSERT(to8 == 8, "Invalid FEN: Not enoguh pieces on a rank!");
+        if (to8 != 8)
+            throw Exception("Invalid FEN: Not enoguh pieces on a rank!");
         it++;
     }
 
-    ASSERT(f[ws[0] + 1] == 'w' || f[ws[0] + 1] == 'b',
-           "Invalid FEN: Side to move must be 'w' or 'b'!");
-    turn = f[ws[0] + 1] == 'w' ? WHITE : BLACK;
+    if (f[ws[0] + 1] != 'w' && f[ws[0] + 1] != 'b')
+        throw Exception("Invalid FEN: Side to move must be 'w' or 'b'!");
+    turnB = f[ws[0] + 1] == 'w' ? WHITE : BLACK;
 
     if (ws[1] != std::string::npos)
     {
@@ -210,46 +217,72 @@ void Board::SetFEN(const std::string& fenStr)
             nr = f.size() - ws[1] - 1;
         
         std::string castle = "KQkq";
-        castlingRights = 0;
+        castlingRightsB = 0;
         if (f[ws[1] + 1] != '-')
         {
             for (int i = 0; i < nr; ++i)
             {
                 size_t ind = castle.find(f[ws[1] + 1 + i]);
-                ASSERT(ind != std::string::npos,
-                       "Invalid FEN: Castling supports only 'K', 'Q', 'k', 'q' or '-'!");
-                castlingRights |= (1 << ind);
+                if (ind == std::string::npos)
+                    throw Exception("Invalid FEN: Castling supports only 'K', 'Q', 'k', 'q' or '-'!");
+                castlingRightsB |= (1 << ind);
             }
         }
     }
     else
+    {
+        board = boardB; turn = turnB;
         return;
+    }
 
     if (ws[2] != std::string::npos)
     {
         if (f[ws[2] + 1] != '-')
-            enPassant = Square(f.substr(ws[2] + 1, 2));
+            enPassantB = Square(f.substr(ws[2] + 1, 2));
         else
-            enPassant = Square(NS);
+            enPassantB = Square(NS);
     }
     else
+    {
+        board = boardB; turn = turnB;
+        castlingRights = castlingRightsB;
         return;
+    }
 
     if (ws[3] != std::string::npos)
     {
         std::string num = f.substr(ws[3] + 1, ws[4] - ws[3] - 1);
-        ASSERT(all_of(num.begin(), num.end(), ::isdigit), "Invalid FEN: Half-move clock must be a number!");
-        halfMoveClock = stoi(num);
+        if (!all_of(num.begin(), num.end(), ::isdigit))
+            throw Exception("Invalid FEN: Half-move clock must be a number!");
+        halfMoveClockB = stoi(num);
     }
     else
+    {
+        board = boardB; turn = turnB;
+        castlingRights = castlingRightsB;
+        enPassant = enPassantB;
         return;
+    }
 
     if (ws[4] != std::string::npos)
     {
         std::string num = f.substr(ws[4] + 1, f.size() - ws[4] - 1);
-        ASSERT(all_of(num.begin(), num.end(), ::isdigit), "Invalid FEN: Full move number must be a number!");
+        if (!all_of(num.begin(), num.end(), ::isdigit))
+            throw Exception("Invalid FEN: Full move number must be a number!");
+        board = boardB; turn = turnB;
+        castlingRights = castlingRightsB;
+        enPassant = enPassantB;
+        halfMoveClock = halfMoveClockB;
         fullMoveNumber = stoi(num);
     }
+    else
+    {
+        board = boardB; turn = turnB;
+        castlingRights = castlingRightsB;
+        enPassant = enPassantB;
+        halfMoveClock = halfMoveClockB;
+    }
+
 }
 
 std::string Board::CastlingRights() const
@@ -578,7 +611,7 @@ bool Board::IsAttacking(const Square& s, const Square& t, const Piece &p /*= Pie
 
 bool Board::CanMove(const Square& s, const Square& t, const Piece& p /*= Piece()*/) const
 {
-    char at = (p.IsNone() ? board[s.Rank()][s.File()] : p.Symbol()), atUpper = toupper(at);
+    char at = (p.IsNone() ? board[s.Rank()][s.File()] : p.Symbol());
     if (s.Id() == NS || t.Id() == NS || at == '.')
         return false;
 

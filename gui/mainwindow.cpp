@@ -41,7 +41,13 @@ void MainWindow::InitPieces(const QString& s)
 void MainWindow::SetFEN()
 {
     QString text = QApplication::clipboard()->text();
-    b.SetFEN(text.toStdString());
+    try { b.SetFEN(text.toStdString()); }
+    catch (std::exception& e)
+    {
+        QMessageBox msg;
+        msg.setText(e.what());
+        msg.exec();
+    }
     RefreshBoard();
 }
 

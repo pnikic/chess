@@ -13,6 +13,7 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <exception>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -56,5 +57,17 @@ SquareType ToSquare(int id);
 Color Switch(Color c);
 bool Legal(int a);
 bool Legal(int a, int b);
+
+class Exception : public std::exception
+{
+public:
+    Exception(const std::string& m) : m(m) {};
+    virtual const char* what() const throw()
+    {
+        return m.c_str();
+    }
+private:
+    std::string m;
+};
 
 #endif //BASE_H

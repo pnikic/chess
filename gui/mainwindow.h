@@ -7,6 +7,7 @@
 #include <QGraphicsRectItem>
 #include <QPixmap>
 #include <QClipboard>
+#include <QMessageBox>
 #include "board.h"
 
 namespace Ui {
