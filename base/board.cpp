@@ -883,7 +883,7 @@ void Board::Status()
     Square wK = King(WHITE), bK = King(BLACK);
     // There can be no adjecent kings.
     if (wK.Distance(bK) < 2)
-        status |= AdjacentKings;    
+        status |= AdjacentKings;
 }
 
 bool Board::IsValid() const

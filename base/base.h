@@ -61,7 +61,7 @@ bool Legal(int a, int b);
 class Exception : public std::exception
 {
 public:
-    Exception(const std::string& m) : m(m) {};
+    Exception(const std::string& m) : m(m) {}
     virtual const char* what() const throw()
     {
         return m.c_str();
