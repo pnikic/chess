@@ -10,6 +10,7 @@ include_directories(base gui)
 find_package(Qt5Widgets)
 
 add_executable(ChApp WIN32
+    gui/chessboardscene.cpp
     gui/main.cpp
     gui/mainwindow.cpp
     base/base.cpp
