@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.10)
 project(ChApp)
 
 set(CMAKE_AUTOMOC ON)
@@ -8,6 +8,9 @@ set(CMAKE_AUTOUIC ON)
 include_directories(base gui)
 
 find_package(Qt5Widgets)
+
+set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_BUILD_TYPE Release)
 
 add_executable(ChApp WIN32
     gui/chessboardscene.cpp

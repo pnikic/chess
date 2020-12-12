@@ -8,23 +8,23 @@ class SetSquares
 {
 public:
     SetSquares();
-    
-    SetSquares(uint64_t board);
-    
-    SetSquares(const SetSquares& ss);
 
-    void Add(const Square& s);
-    
-    void Remove(const Square& s);
-    
+    SetSquares(uint64_t board);
+
+    SetSquares(const SetSquares &ss);
+
+    void Add(const Square &s);
+
+    void Remove(const Square &s);
+
     int Count();
-    
+
     bool IsEmpty();
-    
-    bool IsEmpty(const Square& s);
-    
-    friend std::ostream& operator<<(std::ostream& buf, const SetSquares& ss);
-    
+
+    bool IsEmpty(const Square &s);
+
+    friend std::ostream& operator<<(std::ostream &buf, const SetSquares &ss);
+
 private:
     uint64_t set;
 };

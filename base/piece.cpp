@@ -22,7 +22,7 @@ Piece::Piece(char c)
     id = PieceTypes[f];
 }
 
-Piece::Piece(const Piece& p)
+Piece::Piece(const Piece &p)
 {
     id = p.id;
     color = p.color;
@@ -33,7 +33,9 @@ char Piece::Symbol() const
     for (int i = 0; i < 7; ++i)
         if (id == PieceTypes[i])
             return color ? tolower(PieceNames[i]) : PieceNames[i];
+
     CRASH("Invalid piece type!");
+    return 0;
 }
 
 bool Piece::IsNone() const
@@ -49,4 +51,35 @@ PieceType Piece::Type() const
 Color Piece::Side() const
 {
     return color;
+}
+
+bool Piece::operator==(const Piece &p) const
+{
+    return id == p.id && color == p.color;
+}
+
+bool Piece::operator!=(const Piece &p) const
+{
+    return id != p.id || color != p.color;
+}
+
+Piece& Piece::operator=(const Piece &p)
+{
+    // Self-assignment check
+    if (this != &p)
+    {
+        id = p.id;
+        color = p.color;
+    }
+
+    return *this;
+}
+
+std::ostream& operator<<(std::ostream &buf, const Piece &p)
+{
+    char c = PieceNames[p.Type()];
+    if (p.Side() == BLACK)
+        c = tolower(c);
+
+    return buf << std::string(1, c);
 }

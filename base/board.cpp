@@ -1,288 +1,315 @@
 #include "board.h"
+#include <algorithm>
 #include <cctype>
+
+#include <iostream>
 
 Board::Board()
 {
-    SetFEN(StartingFEN);
-    turn = WHITE;
-    castlingRights = 15; // 0 0 0 0 1 1 1 1
-    enPassant = Square(NS);
-    halfMoveClock = 0;
-    fullMoveNumber = 1;
-    status = Valid;
+    PrecomputePiecesAttacks();
+    ClearBoard();
 }
 
-Board::Board(const std::string& longFen)
+Board::Board(const std::string &longFen)
 {
-    castlingRights = 0; // 0 0 0 0 0 0 0 0
-    enPassant = Square(NS);
-    fullMoveNumber = 1;
-    halfMoveClock = 0;
+    PrecomputePiecesAttacks();
+    ClearBoard();
     SetFEN(longFen);
-    status = Valid;
     Status();
 }
 
-Board::Board(const Board& b)
+Board::Board(const Board &b)
 {
-    board = b.board;
-    castlingRights = b.castlingRights;
-    turn = b.turn;
+    PrecomputePiecesAttacks();
+    pawns = b.pawns;
+    knights = b.knights;
+    bishops = b.bishops;
+    rooks = b.rooks;
+    queens = b.queens;
+    kings = b.kings;
+    occupiedCol[0] = b.occupiedCol[0];
+    occupiedCol[1] = b.occupiedCol[1];
+    occupied = b.occupied;
     enPassant = b.enPassant;
-    fullMoveNumber = b.fullMoveNumber;
+    turn = b.turn;
+    castlingRights = b.castlingRights;
     halfMoveClock = b.halfMoveClock;
+    fullMoveNumber = b.fullMoveNumber;
     status = b.status;
+    lastMove = b.lastMove;
+    lastBoard = b.lastBoard;
 }
+
+Board::~Board(){}
 
 void Board::ClearBoard()
 {
-    board = EmptyBoard;
-    castlingRights = 0;
-    turn = WHITE;
+    pawns = knights = bishops = rooks = queens = kings =
+        occupiedCol[0] = occupiedCol[1] = occupied = BBEmpty;
     enPassant = Square(NS);
-    fullMoveNumber = 1;
+    turn = WHITE;
+    castlingRights = 0;
     halfMoveClock = 0;
-    Status();
+    fullMoveNumber = 1;
+    lastMove = Move();
+    lastBoard = NULL;
 }
 
-SetSquares Board::Pieces(const Piece& p) const
+PieceType Board::PieceTypeAt(const Square &s) const
 {
-    SetSquares ss;
-    for (int i = 0; i < 8; ++i)
-        for (int j = 0; j < 8; ++j)
-            if (board[i][j] == p.Symbol())
-                ss.Add(Square(i, j));
-    
-    return ss;
+    if (s.Id() == NS)
+        return NONE;
+
+    BitBoard mask = s.BB();
+    if (!(occupied & mask))
+        return NONE;
+    else if (pawns & mask)
+        return PAWN;
+    else if (knights & mask)
+        return KNIGHT;
+    else if (bishops & mask)
+        return BISHOP;
+    else if (rooks & mask)
+        return ROOK;
+    else if (queens & mask)
+        return QUEEN;
+    else if (kings & mask)
+        return KING;
+
+    return NONE;
 }
 
-Piece Board::PieceAt(const Square& s) const
+Piece Board::PieceAt(const Square &s) const
 {
     if (s.Id() == NS)
         return Piece();
 
-    char at = board[s.Rank()][s.File()];
-    return at != '.' ? Piece(at) : Piece();
-}
-
-PieceType Board::PieceTypeAt(const Square& s) const
-{
-    if (s.Id() == NS)
-        return NONE;
-    
-    char at = board[s.Rank()][s.File()];
-    if (at != '.')
+    PieceType pt = PieceTypeAt(s);
+    if (pt != NONE)
     {
-        size_t f = PieceNames.find(toupper(at));
-        ASSERT(f != std::string::npos, "Invalid piece type!");
-        return PieceTypes[f];
+        BitBoard mask = s.BB();
+        bool c = !(occupiedCol[WHITE] & mask);
+        return Piece(pt, Color(c));
     }
-    else
-        return NONE;    
+
+    return Piece();
 }
 
 Square Board::King(Color c) const
 {
-    char king = c ? 'k' : 'K';
-    for (int i = 0; i < 8; ++i)
-        for (int j = 0; j < 8; ++j)
-            if (board[i][j] == king)
-                return Square(i, j);
+    BitBoard kingSquare = kings & occupiedCol[c];
+    if (countOnes(kingSquare) != 1)
+        CRASH("Invalid board: No king(s)!");
 
-    CRASH("Invalid board: No king(s)!");
-    return Square();
+    return Square(kingSquare);
 }
 
-Piece Board::RemovePieceAt(const Square& s)
+Piece Board::RemovePieceAt(const Square &s)
 {
-    if (s.Id() == NS)
+    Piece at = PieceAt(s);
+    PieceType pieceType = at.Type();
+    if (pieceType == NONE)
         return Piece();
 
-    char at = board[s.Rank()][s.File()];
-    board[s.Rank()][s.File()] = '.';
-    
-    if (at != '.')
-        return Piece(at);
-    else
-        return Piece();
+    BitBoard mask = s.BB();
+    if (pieceType == PAWN)
+        pawns ^= mask;
+    else if (pieceType == KNIGHT)
+        knights ^= mask;
+    else if (pieceType == BISHOP)
+        bishops ^= mask;
+    else if (pieceType == ROOK)
+        rooks ^= mask;
+    else if (pieceType == QUEEN)
+        queens ^= mask;
+    else if (pieceType == KING)
+        kings ^= mask;
+
+    occupied ^= mask;
+    occupiedCol[at.Side()] ^= mask;
+
+    return at;
 }
 
-void Board::SetPieceAt(const Square& s, const Piece& p)
+void Board::SetPieceAt(const Square &s, const Piece &p)
 {
-    if (s.Id() == NS)
+    if (s.Id() == NS || p.IsNone())
         return;
-    
-    char sym = p.Symbol();
-    board[s.Rank()][s.File()] = sym != ' ' ? sym : '.';    
+
+    RemovePieceAt(s);
+
+    BitBoard mask = s.BB();
+    if (p.Type() == PAWN)
+        pawns |= mask;
+    else if (p.Type() == KNIGHT)
+        knights |= mask;
+    else if (p.Type() == BISHOP)
+        bishops |= mask;
+    else if (p.Type() == ROOK)
+        rooks |= mask;
+    else if (p.Type() == QUEEN)
+        queens |= mask;
+    else if (p.Type() == KING)
+        kings |= mask;
+
+    occupied ^= mask;
+    occupiedCol[p.Side()] ^= mask;
 }
 
 std::string Board::FEN() const
 {
     std::string fen = "";
-    for (int i = 7; i >= 0; --i)
+    for (int row = 7; row >= 0; --row)
     {
-        if (i < 7)
-            fen += '/';
-            
-        int pawns = 0;
-        for (char c : board[i])
+        int empty = 0;
+        for (int col = 0; col < 8; ++col)
         {
-            if (c == '.')
-                ++pawns;
+            Piece at = PieceAt(Square(row, col));
+            if (at.IsNone())
+            {
+                empty++;
+            }
             else
             {
-                if (pawns)
-                    fen += pawns + '0';
-                pawns = 0;
-                fen += c;
+                if (empty)
+                {
+                    fen += empty + '0';
+                    empty = 0;
+                }
+
+                fen += at.Symbol();
             }
         }
 
         // Trailing unprinted pawns
-        if (pawns)
-            fen += pawns + '0';
+        if (empty)
+            fen += empty + '0';
+
+        if (row > 0)
+            fen += "/";
     }
-    
+
     fen += turn == WHITE ? " w " : " b ";
-
-    std::string castle = "KQkq";
-    for (int i = 0; i < 4; ++i)
-        if (castlingRights & (1 << i))
-            fen += castle[i];
-
-    fen += fen.back() == ' ' ? "- " : " ";
+    fen += CastlingRights() + " ";
     fen += enPassant.Id() != NS ? enPassant.Name() : "-";
     fen += " " + std::to_string(halfMoveClock) + " " + std::to_string(fullMoveNumber);
+
     return fen;
 }
 
-void Board::SetFEN(const std::string& fenStr)
+void Board::SetFEN(const std::string &fenStr)
 {
-    // In case fenStr represents an invalid FEN, we will not update *this.
-    BoardArray boardB;
-    Square enPassantB;
-    Color turnB;
-    uint8_t castlingRightsB;
-    int halfMoveClockB;
-    std::string f = trim(fenStr);
-    f = reduce(f);
+    // Temporary board - in order not to change the actual state in case of exceptions
+    Board B;
 
-    boardB = EmptyBoard;
+    // TODO: Default initialization of bitbords
+    std::string f = reduce(fenStr);
+
+    // A FEN record contains six fields. The separator between fields is a space.
     size_t ws[5];
     int i = 0;
     do
         ws[i] = f.find(' ', (i ? ws[i - 1] + 1 : 0));
     while (ws[i] != std::string::npos && ++i < 5);
 
-    if (ws[0] == std::string::npos)
-        throw Exception("Invalid FEN: Missing whitespace after piece placement!");
+    if (i != 5)
+        throw Exception("Invalid FEN: Incorrect number of fields - six are required!");
     if (std::count(f.begin(), f.end(), '/') != 7)
         throw Exception("Invalid FEN: Input must containt seven '/' characters!");
-    
+
+    // The following FEN descriptions are copied from Wikipedia
+    // Source: https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation
+    //
+    // Piece placement (from White's perspective).
+    // * Each rank is described, starting with rank 8 and ending with rank 1;
+    //   within each rank, the contents of each square are described from file "a" through file "h".
+    // * Following the Standard Algebraic Notation (SAN), each piece is identified by a single letter
+    //   taken from the standard English names (pawn = "P", knight = "N", bishop = "B", rook = "R",
+    //   queen = "Q" and king = "K"). White pieces are designated using upper-case letters ("PNBRQK")
+    //   while black pieces use lowercase ("pnbrqk").
+    // * Empty squares are noted using digits 1 through 8 (the number of empty squares)
+    //   and "/" separates ranks.
+
     size_t it = 0;
-    for (int i = 0; i < 8; ++i)
+    for (int row = 7; row >= 0; --row)
     {
         size_t stop = f.find_first_of("/ ", it + 1);
-        int to8 = 0;
+        int col = 0;
         while (it < stop)
         {
             size_t num = RankNames.find(f[it]);
             size_t let = PieceNames.find(toupper(f[it]));
 
             if (let != std::string::npos)
-                boardB[7 - i][to8++] = f[it];
+                B.SetPieceAt(Square(row, col++), Piece(f[it]));
             else if (num != std::string::npos)
-                to8 += num + 1;
+                col += num + 1;
             else
                 throw Exception("Invalid FEN: Irregular letter or number in the piece placement!");
 
             it++;
         }
 
-        if (to8 != 8)
+        if (col != 8)
             throw Exception("Invalid FEN: Not enoguh pieces on a rank!");
         it++;
     }
 
+    // Active color. "w" means White moves next, "b" means Black moves next.
+
     if (f[ws[0] + 1] != 'w' && f[ws[0] + 1] != 'b')
         throw Exception("Invalid FEN: Side to move must be 'w' or 'b'!");
-    turnB = f[ws[0] + 1] == 'w' ? WHITE : BLACK;
+    B.turn = f[ws[0] + 1] == 'w' ? WHITE : BLACK;
 
-    if (ws[1] != std::string::npos)
+    // Castling availability.
+    // If neither side can castle, this is "-". Otherwise, this has one or more letters:
+    // * "K" (White can castle kingside),
+    // * "Q" (White can castle queenside),
+    // * "k" (Black can castle kingside), and/or
+    // * "q" (Black can castle queenside).
+    // A move that temporarily prevents castling does not negate this notation.
+
+    size_t castlingCnt = ws[2] - ws[1] - 1;
+    std::string castle = "KQkq";
+    if (f[ws[1] + 1] != '-')
     {
-        size_t nr;
-        if (ws[2] != std::string::npos)
-            nr = ws[2] - ws[1] - 1;
-        else
-            nr = f.size() - ws[1] - 1;
-        
-        std::string castle = "KQkq";
-        castlingRightsB = 0;
-        if (f[ws[1] + 1] != '-')
+        for (int i = 0; i < castlingCnt; ++i)
         {
-            for (int i = 0; i < nr; ++i)
-            {
-                size_t ind = castle.find(f[ws[1] + 1 + i]);
-                if (ind == std::string::npos)
-                    throw Exception("Invalid FEN: Castling supports only 'K', 'Q', 'k', 'q' or '-'!");
-                castlingRightsB |= (1 << ind);
-            }
+            size_t ind = castle.find(f[ws[1] + 1 + i]);
+            if (ind == std::string::npos)
+                throw Exception("Invalid FEN: Castling supports only 'K', 'Q', 'k', 'q' or '-'!");
+
+            B.castlingRights |= (1 << ind);
         }
     }
-    else
-    {
-        board = boardB; turn = turnB;
-        return;
-    }
 
-    if (ws[2] != std::string::npos)
-    {
-        if (f[ws[2] + 1] != '-')
-            enPassantB = Square(f.substr(ws[2] + 1, 2));
-        else
-            enPassantB = Square(NS);
-    }
-    else
-    {
-        board = boardB; turn = turnB;
-        castlingRights = castlingRightsB;
-        return;
-    }
+    // En passant target square in algebraic notation.
+    // If there's no en passant target square, this is "-".
+    // If a pawn has just made a two-square move, this is the position "behind" the pawn. This is
+    // recorded regardless of whether there is a pawn in position to make an en passant capture.
 
-    if (ws[3] != std::string::npos)
-    {
-        std::string num = f.substr(ws[3] + 1, ws[4] - ws[3] - 1);
-        if (!all_of(num.begin(), num.end(), ::isdigit))
-            throw Exception("Invalid FEN: Half-move clock must be a number!");
-        halfMoveClockB = stoi(num);
-    }
+    if (f[ws[2] + 1] != '-')
+        B.enPassant = Square(f.substr(ws[2] + 1, 2));
     else
-    {
-        board = boardB; turn = turnB;
-        castlingRights = castlingRightsB;
-        enPassant = enPassantB;
-        return;
-    }
+        B.enPassant = Square(NS);
 
-    if (ws[4] != std::string::npos)
-    {
-        std::string num = f.substr(ws[4] + 1, f.size() - ws[4] - 1);
-        if (!all_of(num.begin(), num.end(), ::isdigit))
-            throw Exception("Invalid FEN: Full move number must be a number!");
-        board = boardB; turn = turnB;
-        castlingRights = castlingRightsB;
-        enPassant = enPassantB;
-        halfMoveClock = halfMoveClockB;
-        fullMoveNumber = stoi(num);
-    }
-    else
-    {
-        board = boardB; turn = turnB;
-        castlingRights = castlingRightsB;
-        enPassant = enPassantB;
-        halfMoveClock = halfMoveClockB;
-    }
+    // Halfmove clock: This is the number of halfmoves since the last capture or pawn advance.
+    // The reason for this field is that the value is used in the fifty-move rule.
 
+    std::string num = f.substr(ws[3] + 1, ws[4] - ws[3] - 1);
+    if (!all_of(num.begin(), num.end(), ::isdigit))
+        throw Exception("Invalid FEN: Half-move clock must be a number!");
+    B.halfMoveClock = stoi(num);
+
+    // Fullmove number: The number of the full move. It starts at 1, and is incremented after Black's move.
+
+    num = f.substr(ws[4] + 1, f.size() - ws[4] - 1);
+    if (!all_of(num.begin(), num.end(), ::isdigit))
+        throw Exception("Invalid FEN: Full move number must be a number!");
+    B.fullMoveNumber = stoi(num);
+
+    // FEN parsing was successful
+    *this = B;
 }
 
 std::string Board::CastlingRights() const
@@ -297,367 +324,545 @@ std::string Board::CastlingRights() const
 
 bool Board::CanCastle(Color c, bool side) const
 {
-    int firstRank = c == WHITE ? 0 : 7;
-    char rook = c == WHITE ? 'R' : 'r';
-    int i = (c == WHITE ? 0 : 2) + (side ? 0 : 1);
-    int rookFile = side ? 7 : 0;
+    int castlingBit = (c == WHITE ? 0 : 2) + (side ? 0 : 1);
 
     // We assume that the neither the king nor the choosen rook has previously moved.
-    // If they had moved before, the corresponding entry castlingRights would be 0.
-    if ((1 << i) & castlingRights)
+    //   Had they moved before, the corresponding entry in `castlingRights` would be 0.
+    if ((1 << castlingBit) & castlingRights)
     {
-        Square kingSq = King(c);
-        // The king and the choosen rook are on the player's first rank.
-        if (kingSq.Rank() != firstRank || kingSq.File() != 4 || board[firstRank][rookFile] != rook)
+        BitBoard kingMask = kings & occupiedCol[c];
+        BitBoard rooksMask = rooks & occupiedCol[c];
+        int firstRank = c == WHITE ? 0 : 7;
+        int rookFile = side ? 7 : 0;
+
+        // The king and the choosen rook are on the player's first rank starting position.
+        if (!(kingMask & ToBBSquare(firstRank, 4)) ||
+            !(rooksMask & ToBBSquare(firstRank, rookFile)))
             return false;
-        
+
         // There are no pieces between the king and the rook.
-        if ((side && (board[firstRank][5] != '.' || board[firstRank][6] != '.')) ||
-            (!side && (board[firstRank][1] != '.' || board[firstRank][2] != '.' || board[firstRank][3] != '.')))
+        BitBoard inBetweenPieces = side ? ToBBSquare(firstRank, 5) | ToBBSquare(firstRank, 6) :
+            ToBBSquare(firstRank, 1) | ToBBSquare(firstRank, 2) | ToBBSquare(firstRank, 3);
+        if (occupied & inBetweenPieces)
             return false;
-                    
+
         // The king does not start/pass/land from/over/on a square that is attack by an enemy piece.
-        int k_0 = side ? 4 : 2;
-        for (int k = k_0; k < k_0 + 3; ++k)
+        int k0 = side ? 4 : 2;
+        for (int k = k0; k < k0 + 3; ++k)
             if (IsAttackedBy(Switch(c), Square(firstRank, k)))
                 return false;
-        
+
         return true;
     }
-    else
-        return false;
-}
-
-bool Board::HasLegalEnPassant() const
-{
-    if (enPassant.Id() == NS)
-        return false;
-    
-    int file = enPassant.File();
-    int rank = turn == WHITE ? 4 : 3;
-
-    if (file - 1 >= 0 && board[rank][file - 1] == (turn == WHITE ? 'P' : 'p'))
-        return true;
-    if (file + 1 < 8 && board[rank][file + 1] == (turn == WHITE ? 'P' : 'p'))
-        return true;
 
     return false;
 }
 
-std::vector<Move> Board::PseudoLegalMoves() const
+std::vector<Move> Board::LegalMoves() const
 {
-    std::vector<Move> res;
-    for (int j = 0; j < 8; ++j)
+    std::vector<Move> moves;
+
+    // King moves
+    Square king = King(turn);
+    // Remove the king from the occupancy to account for moving away from a checking slider
+    BitBoard occupancy = occupied & ~king.BB();
+    BitBoard dangerSquares = AttackedSquares(occupiedCol[Switch(turn)], occupancy);
+    BitBoard kingMoves = BBKingAttacks[king.Id()] & ~dangerSquares & ~occupiedCol[turn];
+
+    BitBoard checkers = AttackersMask(Switch(turn), king, occupied);
+    int checks = countOnes(checkers);
+
+    // King moves, if any, are possible in all cases
+    while (kingMoves)
+        moves.emplace_back(king, Square(ScanForward(kingMoves)));
+
+    if (checks >= 2)
     {
-        for (int i = 0; i < 8; ++i)
+        // When in double check, the only legal moves are king moves
+    }
+    else if (checks == 1)
+    {
+        // When in single check, the possibilities are
+        //   1) Move the king out of check
+        //      - already done
+
+        //   2) Block the checking piece (if it is a slider)
+        int seventhRank = turn == WHITE ? 6 : 1;
+        // Note that a pawn move from sevent rank has 4 promotion possibilities
+
+        Square checker = Square(checkers);
+        int dir = king.Direction(checker);
+        if (dir != -1)
         {
-            if (board[i][j] == (turn == WHITE ? 'P' : 'p'))
+            int mvRank = king.Rank() + dy[dir], mvFile = king.File() + dx[dir];
+            Square blockingCandidateSquare(mvRank, mvFile);
+
+            // Iterate over empty squares between king and checker
+            while (Legal(mvRank, mvFile) && blockingCandidateSquare != checker)
             {
-                int startRank = turn == WHITE ? 1 : 6;
-                int endRank = turn == WHITE ? 7 : 0;
-
-                // One square forward
-                int fwdRank = i + (turn == WHITE ? 1 : -1);
-                ASSERT(Legal(fwdRank), "Illegal pawn position!");
-                if (board[fwdRank][j] == '.')
+                // Iterate over all pieces to find blockers for the given square
+                BitBoard blockingCandidatePieces = occupiedCol[turn] & ~kings;
+                while (blockingCandidatePieces)
                 {
-                    if (fwdRank != endRank)
-                        res.emplace_back(Square(i, j), Square(fwdRank, j));
-                    else
-                        for (int k = 0; k < 4; ++k)
-                            res.emplace_back(Square(i, j), Square(fwdRank, j), PieceTypes[k + 1]);
-                }
-
-                // Two squares forward
-                int ffwdRank = startRank + (turn == WHITE ? 2 : -2);
-                if (i == startRank && board[fwdRank][j] == '.' && board[ffwdRank][j] == '.')
-                    res.emplace_back(Square(i, j), Square(ffwdRank, j));
-
-                // Capturing (diagonal)
-                // Left
-                if (j  > 0 && board[fwdRank][j - 1] != '.' &&
-                    (turn == WHITE ? islower(board[fwdRank][j - 1]) : isupper(board[fwdRank][j - 1])))
-                {
-                    if (fwdRank != endRank)
-                        res.emplace_back(Square(i, j), Square(fwdRank, j - 1));
-                    else
-                        for (int k = 0; k < 4; ++k)
-                            res.emplace_back(Square(i, j), Square(fwdRank, j - 1), PieceTypes[k + 1]);
-                    
-                }
-                
-                // Right
-                if (j < 7 && board[fwdRank][j + 1] != '.' &&
-                    (turn == WHITE ? islower(board[fwdRank][j + 1]) : isupper(board[fwdRank][j + 1])))
-                {
-                    if (fwdRank != endRank)
-                        res.emplace_back(Square(i, j), Square(fwdRank, j + 1));
-                    else
-                        for (int k = 0; k < 4; ++k)
-                            res.emplace_back(Square(i, j), Square(fwdRank, j + 1), PieceTypes[k + 1]);
-                }
-                // En passant
-                int epRank = turn == WHITE ? 4 : 3;
-                if (i == epRank && HasLegalEnPassant())
-                {
-                    int epFile = enPassant.File();
-                    if (j + 1 == epFile)
-                        res.emplace_back(Square(i, j), Square(fwdRank, j + 1));
-                    if (j - 1 == epFile)
-                        res.emplace_back(Square(i, j), Square(fwdRank, j - 1));                    
-                }
-                
-            }
-            else if (board[i][j] == (turn == WHITE ? 'N' : 'n'))
-            {
-                for (int k = 0; k < 8; ++k)
-                {
-                    int mvRank = i + dyN[k];
-                    int mvCol = j + dxN[k];
-                    if (Legal(mvRank, mvCol))
+                    Square pieceSquare = Square(ScanForward(blockingCandidatePieces));
+                    if (CanMove(pieceSquare, blockingCandidateSquare))
                     {
-                        char at = board[mvRank][mvCol];
-                        if(at == '.' || (turn == WHITE ? islower(at) : isupper(at)))
-                            res.emplace_back(Square(i, j), Square(mvRank, mvCol));
-                    }
-                }
-            }
-            else if (board[i][j] == (turn == WHITE ? 'B' : 'b')
-                     || board[i][j] == (turn == WHITE ? 'R' : 'r')
-                     || board[i][j] == (turn == WHITE ? 'Q' : 'q')
-                     || board[i][j] == (turn == WHITE ? 'K' : 'k'))
-            {
-                char c = toupper(board[i][j]);
-                int k = c == 'B'? 1 : 0;
-                int stride = c == 'Q' || c == 'K' ? 1 : 2;
-                for (; k < 8; k += stride)
-                {
-                    bool possible = true;
-                    int mvRank = i, mvCol = j;
-                    while (possible)
-                    {
-                        mvRank += dy[k];
-                        mvCol += dx[k];
-                        if (Legal(mvRank, mvCol))
+                        BitBoard from = pieceSquare.BB();
+                        if ((from & pawns) && (from & BBRanks[seventhRank]))
                         {
-                            char at = board[mvRank][mvCol];
-                            if (at == '.')
-                            {
-                                res.emplace_back(Square(i, j), Square(mvRank, mvCol));
-                                possible = c == 'K' ? false : possible;
-                            }
-                            else if (turn == WHITE ? islower(at) : isupper(at))
-                            {
-                                res.emplace_back(Square(i, j), Square(mvRank, mvCol));
-                                possible = false;
-                            }
-                            else
-                                possible = false;
+                            for (int k = 1; k <= 4; ++k)
+                                moves.emplace_back(pieceSquare, blockingCandidateSquare,
+                                                   PieceTypes[k]);
                         }
                         else
-                            possible = false;
+                        {
+                            moves.emplace_back(pieceSquare, blockingCandidateSquare);
+                        }
                     }
+                }
+
+                mvRank += dy[dir];
+                mvFile += dx[dir];
+                blockingCandidateSquare = Square(mvRank, mvFile);
+            }
+        }
+
+        //   3) Capture the checking piece
+        BitBoard captureCandidatePieces = occupiedCol[turn] & ~kings;
+        while (captureCandidatePieces)
+        {
+            Square pieceSquare = Square(ScanForward(captureCandidatePieces));
+            if (CanMove(pieceSquare, checker))
+            {
+                BitBoard from = pieceSquare.BB();
+                if ((from & pawns) && (from & BBRanks[seventhRank]))
+                {
+                    for (int k = 1; k <= 4; ++k)
+                        moves.emplace_back(pieceSquare, checker, PieceTypes[k]);
+                }
+                else
+                {
+                    moves.emplace_back(pieceSquare, checker);
                 }
             }
         }
+
+        // Check for en passant capture of the pawn checker (not covered above as the en passant
+        //   capture square is considered to be the one behind the checker)
+
+        // behindChecker empty, and checker must be in front of e.p. square
+        if (PieceTypeAt(checker) == PAWN && checker.Rank() == (turn == WHITE ? 4 : 3))
+        {
+            Square behindChecker = Square(checker.Rank() + (turn == WHITE ? 1 : -1), checker.File());
+            int left = checker.File() - 1, right = checker.File() + 1;
+            if (Legal(left))
+            {
+                Square leftSq = Square(checker.Rank(), left);
+                Move leftM = Move(leftSq, behindChecker);
+                if (IsEnPassant(leftM) && !IsPinned(leftSq, behindChecker))
+                    moves.push_back(leftM);
+            }
+
+            if (Legal(right))
+            {
+                Square rightSq = Square(checker.Rank(), right);
+                Move rightM = Move(rightSq, behindChecker);
+                if (IsEnPassant(rightM) && !IsPinned(rightSq, behindChecker))
+                    moves.push_back(rightM);
+                // BUGFIX
+                // if (PieceAt(rightSq) == Piece(PAWN, turn) && CanMove(rightSq, behindChecker))
+                //     moves.emplace_back(rightSq, behindChecker);
+            }
+        }
+    }
+    else
+    {
+        // Not in check
+
+        // Piece moves (except king)
+        BitBoard pieces = occupiedCol[turn] & ~pawns & ~kings;
+        while (pieces)
+        {
+            BitBoard pieceBB = ScanForward(pieces);
+            Square s = Square(pieceBB);
+            BitBoard targets = AttackedSquares(pieceBB, occupied);
+            while (targets)
+            {
+                Square t = Square(ScanForward(targets));
+                Piece at = PieceAt(t);
+                bool isFriendlyPiece = !at.IsNone() && at.Side() == turn;
+                if (!isFriendlyPiece && !IsPinned(s, t))
+                    moves.emplace_back(s, t);
+            }
+        }
+
+        // Pawn moves
+        BitBoard turnPawns = occupiedCol[turn] & pawns;
+        int promotionRank = turn == WHITE ? 7 : 0;
+        while (turnPawns)
+        {
+            BitBoard pawnBB = ScanForward(turnPawns),
+                oneFwdBB = turn == WHITE ? ShiftUp(pawnBB) : ShiftDown(pawnBB),
+                twoFwdBB = turn == WHITE ? ShiftUp(oneFwdBB) : ShiftDown(oneFwdBB),
+                leftFwdBB = ShiftLeft(oneFwdBB),
+                rightFwdBB = ShiftRight(oneFwdBB);
+            Square pawn(pawnBB), oneFwd(oneFwdBB), twoFwd(twoFwdBB),
+                leftFwd(leftFwdBB), rightFwd(rightFwdBB);
+            // Two squares forward
+            if (CanMove(pawn, twoFwd))
+                moves.emplace_back(pawn, twoFwd);
+            // One square forward
+            if (CanMove(pawn, oneFwd))
+            {
+                if (oneFwd.Rank() != promotionRank)
+                    moves.emplace_back(pawn, oneFwd);
+                else
+                    for (int k = 1; k <= 4; ++k)
+                        moves.emplace_back(pawn, oneFwd, PieceTypes[k]);
+            }
+            // Captures (includes en passant)
+            if (CanMove(pawn, leftFwd))
+            {
+                if (leftFwd.Rank() != promotionRank)
+                    moves.emplace_back(pawn, leftFwd);
+                else
+                    for (int k = 1; k <= 4; ++k)
+                        moves.emplace_back(pawn, leftFwd, PieceTypes[k]);
+            }
+
+            if (CanMove(pawn, rightFwd))
+            {
+                if (rightFwd.Rank() != promotionRank)
+                    moves.emplace_back(pawn, rightFwd);
+                else
+                    for (int k = 1; k <= 4; ++k)
+                        moves.emplace_back(pawn, rightFwd, PieceTypes[k]);
+            }
+        }
+
+        // Castling
+        int firstRank = turn == WHITE ? 0 : 7;
+        if (CanCastle(turn, true))
+            moves.emplace_back(Square(firstRank, 4), Square(firstRank, 6));
+        if (CanCastle(turn, false))
+            moves.emplace_back(Square(firstRank, 4), Square(firstRank, 2));
     }
 
-    // Castling
-    int firstRank = turn == WHITE ? 0 : 7;
-    if (CanCastle(turn, true))
-        res.emplace_back(Square(firstRank, 4), Square(firstRank, 6));
-    if (CanCastle(turn, false))
-        res.emplace_back(Square(firstRank, 4), Square(firstRank, 2));
-
-    return res;
+    return moves;
 }
 
-bool Board::IsPinned(const Color& c, const Square& s) const
+bool Board::IsPinned(const Square &s, const Square &t) const
 {
-    char at = board[s.Rank()][s.File()];
-    if (at == '.' || (c == WHITE ? islower(at) : isupper(at)))
-        return false;
-    
+    Piece fromPiece = PieceAt(s);
+    Color c = fromPiece.Side();
     Square king = King(c);
-    if (king.Id() == NS)
-        return false;
 
+    // Check if the piece or pawn is on a half-ray with the king in the center
     int dir = king.Direction(s);
     if (dir == -1)
         return false;
 
-    char piece = dir % 2 ? (c == BLACK ? 'B' : 'b') : (c == BLACK ? 'R' : 'r');
-    char queen = c == BLACK ? 'Q' : 'q';
+    // Iterate from the king in the direction of the given square
     int mvRank = king.Rank() + dy[dir], mvFile = king.File() + dx[dir];
+    std::vector<Piece> pathPieces;
+    std::vector<Square> pathSquares;
 
-    std::string path;
-    while (Legal(mvFile, mvRank))
+    while (Legal(mvRank, mvFile))
     {
-        path += board[mvRank][mvFile];
-        mvFile += dx[dir];
+        Piece tmp = PieceAt(Square(mvRank, mvFile));
+        if (!tmp.IsNone())
+        {
+            pathPieces.push_back(tmp);
+            pathSquares.emplace_back(mvRank, mvFile);
+        }
+
         mvRank += dy[dir];
+        mvFile += dx[dir];
     }
 
-    char pinned = path.find_first_not_of('.');
-    char pinner = path.find_first_not_of('.', pinned + 1);
+    // In case of an en passant capture, two pieces are removed from the board
+    // Note: this case could be moved to CanMovePseudoLegal(s, t) in the en passant capture code
+    bool epCase = 0;
+    if (IsEnPassant(Move(s, t)) && pathPieces.size() >= 2)
+    {
+        // Locate the potential en passant pawns
+        int toMovePawnInd = -1, oppPawnInd = -1;
 
-    if (pinner != std::string::npos && pinned != std::string::npos &&
-        (path[pinner] == queen || path[pinner] == piece))
-        return true;
+        for (size_t i = 0; i < pathPieces.size(); ++i)
+        {
+            if (pathPieces[i] == Piece(PAWN, c) && pathSquares[i] == s)
+                toMovePawnInd = i;
+            else if (pathPieces[i] == Piece(PAWN, Switch(c)) &&
+                     pathSquares[i] == Square(t.Rank() + (turn == WHITE ? -1 : 1), t.File()))
+                oppPawnInd = i;
+        }
 
-    return false;
-}
+        epCase = (toMovePawnInd == 0 && oppPawnInd == 1) ||
+            (toMovePawnInd == 1 && oppPawnInd == 0);
+    }
 
-int Board::IsAttackedBy(const Color& c, const Square& s) const
-{
-    if (s.Id() == NS)
+    // Is there any piece in between the king and moving piece?
+    if (!epCase && (pathPieces.empty() || pathSquares[0] != s))
         return false;
 
-    int att = 0;
-    int sqRank = s.Rank(), sqFile = s.File();
-    int pawnRank = sqRank + (c == WHITE ? -1 : 1);
-    // Pawn attacks
-    char pawn = c == WHITE ? 'P' : 'p';
-    if (pawnRank >= 0 && pawnRank < 8 &&
-        ((sqFile > 0 && board[pawnRank][sqFile - 1] == pawn) ||
-         (sqFile < 7 && board[pawnRank][sqFile + 1] == pawn)))
-        ++att;
+    // Is the pinner a piece of opposite color?
+    if (pathPieces.size() < (2 + epCase) || pathPieces[1 + epCase].Side() == c)
+        return false;
 
-    // Knight attacks
-    char knight = c == WHITE ? 'N' : 'n';
-    for (int i = 0; i < 8; ++i)
-    {
-        int mvRank = sqRank + dyN[i];
-        int mvFile = sqFile + dxN[i];
-        if (Legal(mvRank, mvFile) && board[mvRank][mvFile] == knight)
-            ++att;
-    }
+    // It is legal for a piece or pawn to move forward or backward on the same half-ray
+    if (dir == king.Direction(t))
+        return false;
 
-    // Bishop, rook and queen attacks
-    char bishop = c == WHITE ? 'B' : 'b';
-    char rook = c == WHITE ? 'R' : 'r';
-    char queen = c == WHITE ? 'Q' : 'q';
-    for (int i = 0; i < 8; ++i)
+    // Possible pinners
+    Piece piece = Piece(dir % 2 ? BISHOP : ROOK, Switch(c));
+    Piece queen = Piece(QUEEN, Switch(c));
+
+    return (pathPieces[1 + epCase] == queen || pathPieces[1 + epCase] == piece);
+}
+
+BitBoard Board::AttackedSquares(const BitBoard &attackers, const BitBoard &occupied) const
+{
+    BitBoard attackedSquares = BBEmpty;
+
+    // Iterate through attackers and add the squares that they attack
+    BitBoard tmp = attackers;
+    while (tmp)
     {
-        bool possible = true;
-        int mvRank = sqRank, mvFile = sqFile;
-        while (possible)
+        BitBoard attacker = ScanForward(tmp);
+        SquareType sq = Square(attacker).Id();
+        if (pawns & occupiedCol[0] & attacker)
         {
-            mvRank += dy[i];
-            mvFile += dx[i];
-            if (Legal(mvRank, mvFile))
-            {
-                if (i % 2 && (board[mvRank][mvFile] == bishop || board[mvRank][mvFile] == queen))
-                    ++att;
-                else if (!(i % 2) && (board[mvRank][mvFile] == rook || board[mvRank][mvFile] == queen))
-                    ++att;
+            attackedSquares |= BBPawnAttacks[0][sq];
+        }
+        else if (pawns & occupiedCol[1] & attacker)
+        {
+            attackedSquares |= BBPawnAttacks[1][sq];
+        }
+        else if (knights & attacker)
+        {
+            attackedSquares |= BBKnightAttacks[sq];
+        }
+        else if (kings & attacker)
+        {
+            attackedSquares |= BBKingAttacks[sq];
+        }
+        else
+        {
+            BitBoard filePiecesMask = BBFileAttacks[sq][BBAll] & occupied,
+                rankPiecesMask = BBRankAttacks[sq][BBAll] & occupied,
+                diagPiecesMask = BBDiagAttacks[sq][BBAll] & occupied;
 
-                if (board[mvRank][mvFile] != '.')
-                    possible = false;
+            if ((rooks | queens) & attacker)
+            {
+                attackedSquares |= BBFileAttacks[sq][filePiecesMask];
+                attackedSquares |= BBRankAttacks[sq][rankPiecesMask];
             }
-            else
-                possible = false;
+            if ((bishops | queens) & attacker)
+            {
+                attackedSquares |= BBDiagAttacks[sq][diagPiecesMask];
+            }
         }
     }
 
-    // King attacks
-    char king = c == WHITE ? 'K' : 'k';
-    for (int i = 0; i < 8; ++i)
-    {
-        int mvRank = sqRank + dy[i];
-        int mvFile = sqFile + dx[i];
-        if (Legal(mvRank, mvFile) && board[mvRank][mvFile] == king)
-            ++att;
-    }
-
-    return att;
+    return attackedSquares;
 }
 
-bool Board::IsCheck() const
+BitBoard Board::AttackersMask(const Color &c, const Square &s, const BitBoard &occupied) const
+{
+    const SquareType sq = s.Id();
+
+    if (sq == NS)
+        return BBEmpty;
+
+    BitBoard filePiecesMask = BBFileAttacks[sq][BBAll] & occupied,
+        rankPiecesMask = BBRankAttacks[sq][BBAll] & occupied,
+        diagPiecesMask = BBDiagAttacks[sq][BBAll] & occupied;
+
+    BitBoard attackers =
+        (pawns & BBPawnAttacks[Switch(c)][sq]) |
+        (knights & BBKnightAttacks[sq]) |
+        (kings & BBKingAttacks[sq]) |
+        ((rooks | queens) & BBFileAttacks[sq][filePiecesMask]) |
+        ((rooks | queens) & BBRankAttacks[sq][rankPiecesMask]) |
+        ((bishops | queens) & BBDiagAttacks[sq][diagPiecesMask]);
+
+    // Only attackers of the given color
+    return attackers & occupiedCol[c];
+}
+
+int Board::IsAttackedBy(const Color &c, const Square &s) const
+{
+    const SquareType sq = s.Id();
+
+    if (sq == NS)
+        return false;
+
+    BitBoard attackers = AttackersMask(c, s, occupied);
+    return countOnes(attackers);
+}
+
+int Board::IsCheck() const
 {
     return IsAttackedBy(Switch(turn), King(turn));
 }
 
-bool Board::IsAttacking(const Square& s, const Square& t, const Piece &p /*= Piece()*/) const
+bool Board::IsCheckmate() const
 {
-    char at = (p.IsNone() ? board[s.Rank()][s.File()] : p.Symbol()), atUpper = toupper(at);
-    if (s.Id() == NS || t.Id() == NS || at == '.')
+    if (!IsCheck())
         return false;
 
-    int rankDist = s.Rank() - t.Rank();
-    int fileDist = abs(s.File() - t.File());
-    if (at == 'P')
-        return rankDist == -1 && fileDist == 1;
-    if (at == 'p')
-        return rankDist == 1 && fileDist == 1;
-    
-    rankDist = abs(rankDist);
-    if (atUpper == 'N')
-        return (rankDist == 2 && fileDist == 1) || (rankDist == 1 && fileDist == 2);
-    
-    if (atUpper == 'K')
-        return s.Distance(t) == 1;
-
-    int dir = s.Direction(t);
-    if (dir == -1 || (atUpper == 'B' && !(dir % 2)) || (atUpper == 'R' && (dir % 2)))
-        return false;
-    
-    int mvRank = s.Rank() + dy[dir], mvFile = s.File() + dx[dir];
-    while (Legal(mvFile, mvRank) && board[mvRank][mvFile] == '.' && Square(mvRank, mvFile) != t)
-        mvRank += dy[dir], mvFile += dx[dir];
-
-    return Square(mvRank, mvFile) == t;
+    return LegalMoves().size() == 0;
 }
 
-bool Board::CanMove(const Square& s, const Square& t, const Piece& p /*= Piece()*/) const
+bool Board::IsAttacking(const Square &s, const Square &t) const
 {
-    char at = (p.IsNone() ? board[s.Rank()][s.File()] : p.Symbol());
-    if (s.Id() == NS || t.Id() == NS || at == '.')
+    Piece fromPiece = PieceAt(s);
+
+    if (s.Id() == NS || t.Id() == NS || fromPiece.IsNone())
         return false;
 
-    int rankDist = s.Rank() - t.Rank();
-    int fileDist = abs(s.File() - t.File());
-    if (at == 'P')
-        return (rankDist == -1 || (rankDist == -2 && s.Rank() == 1)) && fileDist == 0;
-    if (at == 'p')
-        return (rankDist == 1 || (rankDist == 2 && s.Rank() == 6)) && fileDist == 0;
+    if (fromPiece.Type() == PAWN)
+    {
+        return BBPawnAttacks[fromPiece.Side()][s.Id()] & t.BB();
+    }
+    if (fromPiece.Type() == KNIGHT)
+    {
+        return BBKnightAttacks[s.Id()] & t.BB();
+    }
+    if (fromPiece.Type() == KING)
+    {
+        return BBKingAttacks[s.Id()] & t.BB();
+    }
+    if (fromPiece.Type() == BISHOP)
+    {
+        BitBoard diagPiecesMask = BBDiagAttacks[s.Id()][BBAll] & occupied;
 
-    return IsAttacking(s, t, p);
+        return BBDiagAttacks[s.Id()][diagPiecesMask] & t.BB();
+    }
+    if (fromPiece.Type() == ROOK)
+    {
+        BitBoard filePiecesMask = BBFileAttacks[s.Id()][BBAll] & occupied,
+            rankPiecesMask = BBRankAttacks[s.Id()][BBAll] & occupied;
+
+        return (BBFileAttacks[s.Id()][filePiecesMask] | BBRankAttacks[s.Id()][rankPiecesMask])
+            & t.BB();
+    }
+    if (fromPiece.Type() == QUEEN)
+    {
+        BitBoard filePiecesMask = BBFileAttacks[s.Id()][BBAll] & occupied,
+            rankPiecesMask = BBRankAttacks[s.Id()][BBAll] & occupied,
+            diagPiecesMask = BBDiagAttacks[s.Id()][BBAll] & occupied;
+
+        return (BBFileAttacks[s.Id()][filePiecesMask] | BBRankAttacks[s.Id()][rankPiecesMask]
+                | BBDiagAttacks[s.Id()][diagPiecesMask]) & t.BB();
+    }
+
+    return false;
 }
 
-bool Board::IsEnPassant(const Move& m) const
+bool Board::CanMovePseudoLegal(const Square &s, const Square &t) const
+{
+    Piece fromPiece = PieceAt(s), toPiece = PieceAt(t);
+
+    // Source square must not be empty and destination square must have a piece of different color
+    if (s.Id() == NS || t.Id() == NS || fromPiece.IsNone() ||
+        (!toPiece.IsNone() && toPiece.Side() == fromPiece.Side()))
+        return false;
+
+    bool ret = false;
+
+    if (fromPiece.Type() == PAWN)
+    {
+        // Pawns have special movement rules
+        int rankDist = s.Rank() - t.Rank(),
+            fileDist = abs(s.File() - t.File());
+
+        // Pawns can move forwards (but not to a square with another piece)
+        if (toPiece.IsNone())
+        {
+            // In case of the pawn move for two squares, there cannot be a piece in front of him
+            int pathSquareRank = fromPiece.Side() == WHITE ? 2 : 5;
+            bool isPathSquareClear = !(occupied & ToBBSquare(pathSquareRank, s.File()));
+
+            if (fromPiece.Side() == WHITE)
+                ret |= (rankDist == -1 || (rankDist == -2 && s.Rank() == 1 && isPathSquareClear)) &&
+                    fileDist == 0;
+            else
+                ret |= (rankDist == 1 || (rankDist == 2 && s.Rank() == 6 && isPathSquareClear)) &&
+                    fileDist == 0;
+
+            // Pawns can also capture en passant
+            ret |= IsEnPassant(Move(s, t));
+        }
+        // Pawns can capture a piece diagonally
+        else
+        {
+            ret |= IsAttacking(s, t);
+        }
+    }
+    else if (fromPiece.Type() == KING)
+    {
+        ret = IsAttacking(s, t);
+
+        if (ret)
+        {
+            // Kings cannot move away from a checking slider
+            BitBoard occupancy = occupied & ~s.BB();
+            // This also implicitly prevents the king from moving close to the other king
+            BitBoard attackers = AttackersMask(Switch(fromPiece.Side()), t, occupancy);
+            ret &= attackers == BBEmpty;
+        }
+    }
+    else
+    {
+        // Non-pawns move the same as they attack
+        ret = IsAttacking(s, t);
+    }
+
+    return ret;
+}
+
+bool Board::CanMove(const Square &s, const Square &t) const
+{
+    return CanMovePseudoLegal(s, t) && !IsPinned(s, t);
+}
+
+bool Board::IsEnPassant(const Move &m) const
+{
+    if (enPassant.Id() == NS)
+        return false;
+
+    // It is assumed that there is a pawn of the opppsite color of `turn`
+    //   in front of the `enPassant` square
+
+    // Only pawns that advanced for 3 squares can capture en passant
+    int validPawnRank = turn == WHITE ? 4 : 3;
+    Square f = m.From(), t = m.To();
+    return t == enPassant && abs(f.File() - t.File()) == 1 && f.Rank() == validPawnRank &&
+        (f.BB() & pawns & occupiedCol[turn]);
+}
+
+bool Board::IsCapture(const Move &m) const
 {
     Square f = m.From(), t = m.To();
-    return board[f.Rank()][f.File()] == (turn == WHITE ? 'P' : 'p') &&
-        board[f.Rank()][t.File()] == (turn == WHITE ? 'p' : 'P') &&
-        t == enPassant && abs(f.File() - t.File()) == 1;
+    return (t.BB() & occupiedCol[Switch(turn)] &&
+            f.BB() & occupiedCol[turn]) || IsEnPassant(m);
 }
 
-bool Board::IsCapture(const Move& m) const
+bool Board::IsZeroing(const Move &m) const
 {
-    Square f = m.From(), t = m.To();
-    char fPiece = board[f.Rank()][f.File()], tPiece = board[t.Rank()][t.File()];
-    return ((turn == WHITE ? isupper(fPiece) : islower(fPiece)) &&
-            (turn == WHITE ? islower(tPiece) : isupper(tPiece))) ||
-        IsEnPassant(m);
+    Piece at = PieceAt(m.From());
+    return IsCapture(m) || at == Piece(PAWN, turn);
 }
 
-bool Board::IsZeroing(const Move& m) const
-{
-    Square f = m.From();
-    char fPiece = board[f.Rank()][f.File()];
-    return IsCapture(m) || fPiece == (turn == WHITE ? 'P' : 'p');
-}
-
-bool Board::IsCastling(const Move& m) const
+bool Board::IsCastling(const Move &m) const
 {
     // Note that a castling move is pseudolegal iff it is completely legal.
     Square f = m.From(), t = m.To();
-    char fPiece = board[f.Rank()][f.File()];
-    return fPiece == (turn == WHITE ? 'K' : 'k') && f.Distance(t) > 1;
+    return PieceAt(f) == Piece(KING, turn) && f.Distance(t) > 1;
 }
 
-bool Board::IsKSCastling(const Move& m) const
+bool Board::IsKSCastling(const Move &m) const
 {
     return IsCastling(m) && m.To().File() == 6;
 }
@@ -667,228 +872,83 @@ bool Board::IsQSCastling(const Move &m) const
     return IsCastling(m) && m.To().File() == 2;
 }
 
-std::string Board::SAN(const Move& m) const
+bool Board::IsPawnDoublePush(const Move &m) const
 {
-    std::string SAN;
+    int initialRank = turn == WHITE ? 1 : 6, targetRank = turn == WHITE ? 3 : 4;
     Square f = m.From(), t = m.To();
-    char fPiece = board[f.Rank()][f.File()];
-    
-    if (toupper(fPiece) == 'P')
-    {
-        if (IsCapture(m))
-            SAN = std::string(1, f.Name()[0]) + "x" + t.Name();
-        else
-            SAN = t.Name();
-
-        if (m.Promotion() != NONE)
-            SAN += "=" + std::string(1, PieceNames[m.Promotion()]);
-    }
-    else if (IsKSCastling(m))
-        SAN = "O-O";
-    else if (IsQSCastling(m))
-        SAN = "O-O-O";
-    else
-    {
-        // To resolve move ambiguities (e.g. Nge2, Bgd5, Qa2d5 etc.)
-        std::string fP = std::string(1, toupper(fPiece));
-        std::string x = IsCapture(m) ? "x" : "";
-        std::vector<Square> A;
-        for (int j = 0; j < 8; ++j)
-        {
-            for (int i = 0; i < 8; ++i)
-            {
-                Square sq = Square(i, j);
-                if (board[i][j] == fPiece && sq != f && !IsPinned(turn, sq) && IsAttacking(sq, t))
-                    A.push_back(sq);
-            }
-        }
-
-        if (!A.size())
-            SAN = fP + x + t.Name();
-        else if (find_if(A.begin(), A.end(), [&](Square sq){return sq.File() == f.File();}) == A.end())
-            SAN = fP + std::string(1, f.Name()[0]) + x + t.Name();
-        else if (find_if(A.begin(), A.end(), [&](Square sq){return sq.Rank() == f.Rank();}) == A.end())
-            SAN = fP + std::string(1, f.Name()[1]) + x + t.Name();
-        else
-            SAN = fP + f.Name() + x + t.Name();
-    }
-
-    Square oppKing = King(Switch(turn));
-    char oKing = turn == WHITE ? 'k' : 'K';
-    if (m.Promotion() != NONE)
-        fPiece = turn == WHITE ? PieceNames[m.Promotion()] : tolower(PieceNames[m.Promotion()]);
-
-    // After the move is played, the opposite side might end up in check (e.g. discovery)
-    Board after(*this);
-    after.SetPieceAt(t, Piece(fPiece));
-    after.RemovePieceAt(f);
-    int nrAttackers = after.IsAttackedBy(turn, oppKing);
-
-    if (nrAttackers)
-    {
-        // Check for checkmate
-        bool flag = true;
-        if (nrAttackers == 1)
-        {
-            // Find direction and square of the attacker
-            int dir; Square Att;
-            for (int i = 0; i < 8; ++i)
-                for (int j = 0; j < 8; ++j)
-                    if (after.IsAttacking(Square(i, j), oppKing))
-                        dir = oppKing.Direction(Square(i,j)), Att = Square(i, j);
-
-            if (dir != -1)
-            {
-                // Interposition (only unpinned pieces or pawns can interpose)
-                int mvRank = oppKing.Rank() + dy[dir], mvFile = oppKing.File() + dx[dir];
-                while (flag && Legal(mvRank, mvFile) && Square(mvRank, mvFile) != Att)
-                {
-                    char king = turn == BLACK ? 'K' : 'k';
-                    for (int i = 0; i < 8 && flag; ++i)
-                    {
-                        for (int j = 0; j < 8 && flag; ++j)
-                        {
-                            char at = board[i][j];
-                            if ((turn == BLACK ? isupper(at) : islower(at)) && at != king &&
-                                after.CanMove(Square(i, j), Square(mvRank, mvFile)) &&
-                                !after.IsPinned(Switch(turn), Square(i, j)))
-                                flag = false;
-                        }
-                    }
-
-                    mvRank += dy[dir]; mvFile += dx[dir];
-                }
-            }
-
-            // Can the checking piece be captured?
-            for (int i = 0; i < 8 && flag; ++i)
-            {
-                for (int j = 0; j < 8 && flag; ++j)
-                {
-                    char at = board[i][j];
-                    if (at != oKing && (turn == WHITE ? islower(at) : isupper(at)) &&
-                        after.IsAttacking(Square(i, j), Att) && !after.IsPinned(Switch(turn), Square(i, j)))
-                        flag = false;
-                }
-            }
-        
-            // The king can only capture an undefended piece.
-            if (flag && after.IsAttacking(oppKing, Att) && !after.IsAttackedBy(turn, Att))
-                flag = false;
-        }
-        
-        // Can the king escape?
-        for (int i = 0; i < 8 && flag; ++i)
-        {
-            int eRank = oppKing.Rank() + dy[i], eFile = oppKing.File() + dx[i];
-            if (!Legal(eRank, eFile))
-                continue;
-            
-            Square e(eRank, eFile);
-            if (board[eRank][eFile] != '.' || e == t)
-                continue;
-
-            // How would the board then look like?
-            Board tmp(after);
-            tmp.SetPieceAt(e, Piece(oKing));
-            tmp.RemovePieceAt(oppKing);
-
-            if (!tmp.IsAttackedBy(turn, e))
-                flag = false;
-        }
-        SAN += flag ? "#" : "+";
-    }
-
-    return SAN;
+    return PieceAt(f) == Piece(PAWN, turn) && f.Rank() == initialRank && t.Rank() == targetRank &&
+        f.File() == t.File();
 }
 
 void Board::Status()
 {
-    if (board == EmptyBoard)
-        status |= Empty;
+    status = VALID;
 
-    int nrKW = 0, nrKB = 0;
-    int nrPW = 0, nrPB = 0;
-    int nrW = 0, nrB = 0;
-    for (int i = 0; i < 8; ++i)
-    {
-        for (int j = 0; j < 8; ++j)
-        {
-            if (PieceNames.find(toupper(board[i][j])) != std::string::npos)
-            {
-                if (isupper(board[i][j]))
-                    ++nrW;
-                else
-                    ++nrB;
+    if (occupied == BBEmpty)
+        status |= EMPTY;
 
-                switch (board[i][j])
-                {
-                case 'K':
-                    ++nrKW; break;
-                case 'k':
-                    ++nrKB; break;
-                case 'P':
-                    ++nrPW; break;
-                case 'p':
-                    ++nrPB; break;
-                }
-            }
-        }
-    }
+    if (!(kings & occupiedCol[WHITE]))
+        status |= NO_WHITE_KING;
 
-    if (nrKW == 0)
-        status |= NoWhiteKing;
-    if (nrKB == 0)
-        status |= NoBlackKing;
-    if (nrKW > 1 || nrKB > 1)
-        status |= TooManyKings;
+    if (!(kings & occupiedCol[BLACK]))
+        status |= NO_BLACK_KING;
 
-    // There can be no more than 16 pieces of any color.
-    if (nrW > 16)
-        status |= TooManyWhitePieces;
-    if (nrB > 16)
-        status |= TooManyBlackPieces;
-    // There can be no more than 8 pawns of any color.
-    if (nrPW > 8)
-        status |= TooManyWhitePawns;
-    if (nrPB > 8)
-        status |= TooManyBlackPawns;
+    if (countOnes(kings) > 2)
+        status |= TOO_MANY_KINGS;
 
-    // Pawns cannot be on the backrank.
-    if (any_of(board[0].begin(), board[0].end(), [](char x){return toupper(x) == 'P';}) ||
-        any_of(board[7].begin(), board[7].end(), [](char x){return toupper(x) == 'P';}))
-        status |= PawnsOnBackRank;
+    if (countOnes(pawns & occupiedCol[WHITE]) > 8)
+        status |= TOO_MANY_WHITE_PAWNS;
+
+    if (countOnes(pawns & occupiedCol[BLACK]) > 8)
+        status |= TOO_MANY_BLACK_PAWNS;
+
+    if (countOnes(occupiedCol[WHITE]) > 16)
+        status |= TOO_MANY_WHITE_PIECES;
+
+    if (countOnes(occupiedCol[BLACK]) > 16)
+        status |= TOO_MANY_BLACK_PIECES;
+
+    // Pawns cannot be on the backrank
+    if (pawns & BBBackRanks)
+        status |= PAWNS_ON_BACK_RANK;
 
     if (enPassant.Id() != NS)
     {
-        // The en passant square must on the third or sixth rank.
+        // The en passant square must on the third or sixth rank
         if (enPassant.Rank() != (turn == WHITE ? 5 : 2))
-            status |= InvalidEpSquare;
+            status |= INVALID_EP_SQUARE;
 
         // The last move must have been a double pawn push, so there must
-        // be a corresponding pawn on the fourth or fifth rank.
-        if (board[turn == WHITE ? 4 : 3][enPassant.File()] != (turn == WHITE ? 'p' : 'P'))
-            status |= InvalidEpSquare;
+        // be a corresponding pawn on the fourth or fifth rank
+        if (PieceAt(Square(turn == WHITE ? 4 : 3, enPassant.File())) == Piece(PAWN, Switch(turn)))
+            status |= INVALID_EP_SQUARE;
 
-        // The en passant and the second rank square must be empty.
-        if (board[enPassant.Rank()][enPassant.File()] != '.' ||
-            board[turn == WHITE ? 6 : 1][enPassant.File()] != '.')
-            status |= InvalidEpSquare;
+        // The en passant and the second rank square must be empty
+        if ((enPassant.BB() & occupied) ||
+            (Square(turn == WHITE ? 6 : 1, enPassant.File()).BB() & occupied))
+            status |= INVALID_EP_SQUARE;
     }
 
-    // Side to move cannot be giving check.
+    if (castlingRights & ~15)
+        status |= INVALID_CASTLING_RIGHTS;
+
+    // Side to move cannot be giving check
     if (IsAttackedBy(turn, King(Switch(turn))))
-        status |= OppositeCheck;
+        status |= OPPOSITE_CHECK;
+
+    if (IsCheck() > 2)
+        status |= TOO_MANY_CHECKERS;
 
     Square wK = King(WHITE), bK = King(BLACK);
-    // There can be no adjecent kings.
+    // There can be no adjecent kings
     if (wK.Distance(bK) < 2)
-        status |= AdjacentKings;
+        status |= ADJACENT_KINGS;
 }
 
-bool Board::IsValid() const
+bool Board::IsValid()
 {
-    return status == Valid;
+    Status();
+    return status == VALID;
 }
 
 Color Board::ToMove() const
@@ -896,10 +956,122 @@ Color Board::ToMove() const
     return turn;
 }
 
-std::ostream& operator<<(std::ostream& buf, const Board& b)
+Board* Board::MakeMove(const Move& m) const
 {
-    for (int i = 7; i >= 0; --i)
-        buf << b.board[i] << '\n';
+    Board* next = new Board(*this);
+    next->lastMove = m;
+    next->lastBoard = const_cast<Board*>(this);
+
+    // Clear old en passant square
+    next->enPassant = Square();
+
+    // Remove the moving piece from the board and set it (or the promoted piece) on the new square
+    Square f = m.From(), t = m.To();
+    Piece p = next->RemovePieceAt(f);
+
+    if (m.Promotion() != NONE)
+    {
+         p = Piece(m.Promotion(), turn);
+    }
+
+    next->SetPieceAt(t, p);
+
+    if (IsEnPassant(m))
+    {
+        // Also remove the pawn capture en passant
+        int epRank = turn == WHITE ? 4 : 3;
+        next->RemovePieceAt(Square(epRank, enPassant.File()));
+    }
+    else if (IsCastling(m))
+    {
+        // Also move the castling rook
+        int baseRank = turn == WHITE ? 0 : 7;
+        int rookFromFile = m.To().File() == 6 ? 7 : 0;
+        int rookToFile = m.To().File() == 6 ? 5 : 3;
+
+        Piece at = next->RemovePieceAt(Square(baseRank, rookFromFile));
+        next->SetPieceAt(Square(baseRank, rookToFile), at);
+
+        // Castling rights bitmask     - 0 0 0 0 q k Q K
+        // Remaining options for White - 0 0 0 0 0 0 1 1 =  3
+        // Remaining options for Black - 0 0 0 0 1 1 0 0 = 12
+        int turnMask = turn == WHITE ? 12 : 3;
+        next->castlingRights &= turnMask;
+    }
+    else if (IsPawnDoublePush(m))
+    {
+        int epRank = turn == WHITE ? 2 : 5;
+        next->enPassant = Square(epRank, m.From().File());
+    }
+
+    // Check losing of castling rights
+    int turnShift = turn == WHITE ? 0 : 2;
+    int startingRank = turn == WHITE ? 0 : 7;
+    Piece atKings = next->PieceAt(Square(startingRank, 4)),
+        k = Piece(KING, turn), r = Piece(ROOK, turn);
+
+    // If KS castling rights were available, check if the king or KS rook moved
+    if ((next->castlingRights & (1 << turnShift)) &&
+        (atKings != k ||  next->PieceAt(Square(startingRank, 7)) != r))
+    {
+        next->castlingRights ^= 1 << turnShift;
+    }
+
+    // If QS castling rights were available, check if the king or QS rook moved
+    if ((next->castlingRights & (1 << (1 + turnShift))) &&
+        (atKings != k|| next->PieceAt(Square(startingRank, 0)) != r))
+    {
+        next->castlingRights ^= 1 << (1 + turnShift);
+    }
+
+    next->halfMoveClock += 1;
+    if (IsZeroing(m))
+        next->halfMoveClock = 0;
+
+    next->fullMoveNumber += turn == BLACK;
+    next->turn = Switch(turn);
+    // TODO: status?
+
+    return next;
+}
+
+Board* Board::UnmakeMove() const
+{
+    Board* ret = lastBoard;
+    // Destructing the current board, as it will not be accessible in the future
+    delete this;
+
+    return ret;
+}
+
+bool Board::operator==(const Board &B) const
+{
+    return (pawns == B.pawns &&
+            knights == B.knights &&
+            bishops && B.bishops &&
+            rooks == B.rooks &&
+            queens == B.queens &&
+            kings == B.kings &&
+            occupiedCol[0] == B.occupiedCol[0] &&
+            occupiedCol[1] == B.occupiedCol[1] &&
+            occupied == B.occupied &&
+            enPassant == B.enPassant &&
+            turn == B.turn &&
+            castlingRights == B.castlingRights);
+}
+
+std::ostream& operator<<(std::ostream &buf, const Board &b)
+{
+    for (int row = 7; row >= 0; --row)
+    {
+        for (int col = 0; col < 8; ++col)
+        {
+            buf << b.PieceAt(Square(row, col));
+        }
+        buf << "\n";
+    }
+
+    std::cout << "\n";
 
     // Testing output (will be removed)
     buf << "EP: " << b.enPassant.Name() << "\t";
@@ -908,5 +1080,5 @@ std::ostream& operator<<(std::ostream& buf, const Board& b)
     buf << "FMN: " << b.fullMoveNumber << "\t";
     buf << "Castling: " <<  b.CastlingRights() << "\n";
 
-    return buf;        
+    return buf;
 }

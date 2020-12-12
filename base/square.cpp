@@ -1,4 +1,7 @@
 #include "square.h"
+#include "setsqr.h"
+
+#include <iostream>
 
 Square::Square()
 {
@@ -7,8 +10,20 @@ Square::Square()
 
 Square::Square(int rank, int file)
 {
-    ASSERT(file >= 0 && rank >= 0 && file < 8 && rank < 8, "Invalid file or rank!");
-    id = ToSquare(rank, file);
+    // Validity check
+    if (!Legal(rank, file))
+        id = NS;
+    else
+        id = ToSquare(rank, file);
+}
+
+Square::Square(BitBoard b)
+{
+    // Bitboard must have exactly one active bit!
+    if (countOnes(b) != 1)
+        id = NS;
+    else
+        id = static_cast<SquareType>(LSB(b));
 }
 
 Square::Square(SquareType s)
@@ -17,12 +32,12 @@ Square::Square(SquareType s)
     id = s;
 }
 
-Square::Square(const Square& s)
+Square::Square(const Square &s)
 {
     id = s.id;
 }
 
-Square::Square(const std::string& s)
+Square::Square(const std::string &s)
 {
     assert(s.size() == 2);
     size_t file = FileNames.find(s[0]);
@@ -47,7 +62,12 @@ SquareType Square::Id() const
     return id;
 }
 
-int Square::Distance(const Square& s) const
+BitBoard Square::BB() const
+{
+    return BBSquares[id];
+}
+
+int Square::Distance(const Square &s) const
 {
     ASSERT(id <= H8 && s.id <= H8, "Invalid squares!");
     int rankDist = abs(Rank() - s.Rank());
@@ -55,7 +75,7 @@ int Square::Distance(const Square& s) const
     return std::max(rankDist, fileDist);
 }
 
-int Square::Direction(const Square& s) const
+int Square::Direction(const Square &s) const
 {
     ASSERT(id <= H8 && s.id <= H8, "Invalid squares!");
     int d1 = s.File() - File(), d2 = s.Rank() - Rank();
@@ -87,24 +107,26 @@ std::string Square::Name() const
         return "00";
 }
 
-bool Square::operator==(const Square& sq)
+bool Square::operator==(const Square &sq) const
 {
     return id == sq.Id();
 }
 
-bool Square::operator!=(const Square& sq)
+bool Square::operator!=(const Square &sq) const
 {
     return id != sq.Id();
 }
 
-std::ostream& operator<<(std::ostream& buf, const Square& sq)
+Square& Square::operator=(const Square &sq)
 {
-    BoardArray Board = EmptyBoard;
-    if (sq.id != NS)
-        Board[sq.Rank()][sq.File()] = '1';
-    
-    for (int i = 7; i >= 0; --i)
-        buf << Board[i] << '\n';
-    
-    return buf;
+    // Self-assignment check
+    if (this != &sq)
+        id = sq.id;
+
+    return *this;
+}
+
+std::ostream& operator<<(std::ostream &buf, const Square &sq)
+{
+    return buf << SetSquares(1ull << sq.Id());
 }

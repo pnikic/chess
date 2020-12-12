@@ -8,7 +8,7 @@ Move::Move()
     promotion = NONE;
 }
 
-Move::Move(const Square& a, const Square& b, PieceType p /*= NONE*/)
+Move::Move(const Square &a, const Square &b, PieceType p /*= NONE*/)
 {
     ASSERT (a.Id() <= NS && b.Id() <= NS && p <= NONE,
             "Invalid square(s) or promoted piece!");
@@ -17,7 +17,7 @@ Move::Move(const Square& a, const Square& b, PieceType p /*= NONE*/)
     promotion = p;
 }
 
-Move::Move(const std::string& s)
+Move::Move(const std::string &s)
 {
     ASSERT(s.size() <= 5, "Invalid UCI move: too long!");
     size_t file1 = FileNames.find(tolower(s[0])), rank1 = RankNames.find(tolower(s[1]));
@@ -39,7 +39,7 @@ Move::Move(const std::string& s)
         promotion = NONE;
 }
 
-Move::Move(const Move& m)
+Move::Move(const Move &m)
 {
     from = m.from;
     to = m.to;
@@ -65,4 +65,17 @@ Square Move::To() const
 PieceType Move::Promotion() const
 {
     return promotion;
+}
+
+Move& Move::operator=(const Move& m)
+{
+    // Self-assignment check
+    if (this != &m)
+    {
+        from = m.from;
+        to = m.to;
+        promotion = m.promotion;
+    }
+
+    return *this;
 }
