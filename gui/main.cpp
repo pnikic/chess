@@ -1,12 +1,8 @@
+// Gui
 #include "mainwindow.h"
-#include <QApplication>
 
-#include "base.h"
-#include "board.h"
-#include "move.h"
-#include "piece.h"
-#include "setsqr.h"
-#include "square.h"
+// Qt
+#include <QApplication>
 
 int main(int argc, char *argv[])
 {

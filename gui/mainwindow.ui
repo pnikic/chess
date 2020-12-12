@@ -14,7 +14,7 @@
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <widget class="QGraphicsView" name="graphicsView">
+   <widget class="QGraphicsView" name="chessboardView">
     <property name="geometry">
      <rect>
       <x>10</x>
@@ -69,6 +69,9 @@
   <action name="actionLoad_FEN">
    <property name="text">
     <string>Load FEN</string>
+   </property>
+   <property name="toolTip">
+    <string>Load FEN from Clipboard</string>
    </property>
   </action>
  </widget>
