@@ -1030,7 +1030,7 @@ Board* Board::MakeMove(const Move& m) const
 
     next->fullMoveNumber += turn == BLACK;
     next->turn = Switch(turn);
-    // TODO: status?
+    next->Status();
 
     return next;
 }

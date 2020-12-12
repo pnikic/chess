@@ -1,195 +1,198 @@
+#include "board.h"
+#include "game.h"
 #include "test.h"
 
-Test::Test() : test2Fen{"r1bq1b1r/ppp2kpp/2n5/3np3/2B5/8/PPPP1PPP/RNBQK2R w KQ - 0 7",
-        "rnbqk1nr/ppp2ppp/8/4P3/1BP5/8/PP2K1PP/RN1Q1BnR w kq - 0 8",
-        "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3",
-        "rnbqkbnr/p6p/2pp2p1/Pp2pp2/4P1P1/2P2N2/1P1P1P1P/RNBQKB1R w KQkq b6 0 7",
-        "             rn1qkbn1/pP5r/3pN1p1/4ppPp/4P3/2Np4/1p1KBP1P/R1BQ3R     b   q    - 0   17      ",
-        "r3k2r/8/2Q5/8/8/8/8/4K3 b kq -",
-        "4k3/6q1/8/8/8/8/8/R3K2R w KQ -",
-        "4k3/6q1/8/8/8/8/8/RN2K2R w KQ"},
-               test3Fen{"rnb1k2r/ppp2ppp/4p3/3p4/1bPPnB1q/2N1P3/PPQ2PPP/R3KBNR w KQkq -",
-                       "r1bqk2r/ppp1n1pp/2nb4/1B1p1P2/3p4/5N2/PPP2PPP/RNBQR1K1 b Qkq - 0 1",
-                       "6k1/pp1n2pp/3bN3/3P1p2/1PP5/4rBqr/P2Q2P1/R4RK1 w - - 0 27",
-                       "4k3/1p6/8/4q3/8/8/1P6/4RK2 b - - 0 1",
-                       "1r4Q1/Pqkb4/1pnr4/2P1P3/8/2N5/6Q1/R3K3 w Q -",
-                       "r4bkb/1q6/8/1n6/4R3/1K3b1r/3r4/2r5 b - -",
-                       "6n1/5P1k/7r/8/2B5/1P6/PBP5/1K6 w - -",
-                       "7B/1qR5/8/1n6/4R3/1K3b1r/8/7k b - -"}
+#include <algorithm>
+#include <iostream>
+#include <map>
+#include <unordered_map>
+
+#include <boost/process.hpp>
+using namespace boost::process;
+
+std::string test2Fen[] =
 {
-    e4 = Square(3, 4);
-    d5 = Square("d5");
-    a1 = Square(A1);
-    A = Piece(ROOK, BLACK);
-    B = Piece('Q');
-    C = Piece(B);
-    m = Move(e4, d5);
-    n = Move("E4e5");
-    o = Move("a7a8N");
-    sA = SetSquares((unsigned long long)7);
-}
+    "r1bq1b1r/ppp2kpp/2n5/3np3/2B5/8/PPPP1PPP/RNBQK2R w KQ - 0 7",
+    "rnbqk1nr/ppp2ppp/8/4P3/1BP5/8/PP2K1PP/RN1Q1BnR w kq - 0 8",
+    "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3",
+    "rnbqkbnr/p6p/2pp2p1/Pp2pp2/4P1P1/2P2N2/1P1P1P1P/RNBQKB1R w KQkq b6 0 7",
+    "             rn1qkbn1/pP5r/3pN1p1/4ppPp/4P3/2Np4/1p1KBP1P/R1BQ3R     b   q    - 0   17      ",
+    "r3k2r/8/2Q5/8/8/8/8/4K3 b kq -",
+    "4k3/6q1/8/8/8/8/8/R3K2R w KQ -",
+    "4k3/6q1/8/8/8/8/8/RN2K2R w KQ"};
 
-void Test::test1()
+std:: string test3Fen[] =
 {
-    std::cout << "Test #1 started..." << std::endl;
-    std::stringstream ss;
-    ss << e4;
-    ASSERT(ss.str() == "........\n........\n........\n........\n....1...\n........\n........\n........\n",
-           "Square::operator<< for the e4 square");
-    ASSERT(d5.Name() == "d5", "Square::Name for the d5 square");
-    ASSERT(e4.Distance(a1) == 4, "Square::Name for the d5 square");
+    "rnb1k2r/ppp2ppp/4p3/3p4/1bPPnB1q/2N1P3/PPQ2PPP/R3KBNR w KQkq - 0 1",
+    "r1bqk2r/ppp1n1pp/2nb4/1B1p1P2/3p4/5N2/PPP2PPP/RNBQR1K1 b Qkq - 0 1",
+    "6k1/pp1n2pp/3bN3/3P1p2/1PP5/4rBqr/P2Q2P1/R4RK1 w - - 0 27",
+    "4k3/1p6/8/4q3/8/8/1P6/4RK2 b - - 0 1",
+    "1r4Q1/Pqkb4/1pnr4/2P1P3/8/2N5/6Q1/R3K3 w Q - 0 1",
+    "r4bkb/1q6/8/1n6/4R3/1K3b1r/3r4/2r5 b - - 0 1",
+    "6n1/5P1k/7r/8/2B5/1P6/PBP5/1K6 w - - 0 1",
+    "7B/1qR5/8/1n6/4R3/1K3b1r/8/7k b - - 0 1"
+};
 
-    ASSERT(A.Symbol() == 'r', "Piece::Symbol");
-    ASSERT(B.Symbol() == 'Q', "Piece::Symbol");
-    ASSERT(C.Symbol() == 'Q', "Piece::Symbol");
-
-    ASSERT(m.UCI() == "e4d5", "Move::UCI");
-    ASSERT(n.UCI() == "e4e5", "Move::UCI");
-    ASSERT(o.UCI() == "a7a8n", "Move::UCI");
-    
-    ss.str(std::string());
-    ss << sA;
-    ASSERT(ss.str() == "........\n........\n........\n........\n........\n........\n........\n111.....\n",
-           "SetSquares::operator<<");
-    sA.Add(e4);
-    sA.Add(e4);
-    sA.Add(d5);
-    sA.Remove(Square(B1));
-    sA.Remove(Square(0, 2));
-    sA.Add(Square(1, 6));
-
-    ss.str(std::string());
-    ss << sA;
-    ASSERT(ss.str() == "........\n........\n........\n...1....\n....1...\n........\n......1.\n1.......\n",
-           "SetSquares::Add, SetSquares::Remove, SetSquares::operator<<");
-    ASSERT(sA.Count() == 4, "SetSquares::Count");
-    ASSERT(sA.IsEmpty(Square(B1)), "SetSquares::IsEmpty");
-
-    std::cout << "Test #1 succesfully finished.\n" << std::endl;
-}
-
-void Test::test2()
+std::string castlingTestFEN[] =
 {
-    std::cout << "Test #2 started...(8 subtests)" << std::endl;
-    std::string sol[9][8] = {{"r1bq1b1r/ppp2kpp/2n5/3np3/2B5/8/PPPP1PPP/RNBQK2R w KQ - 0 7",
-                              "rnbqk1nr/ppp2ppp/8/4P3/1BP5/8/PP2K1PP/RN1Q1BnR w kq - 0 8",
-                              "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1",
-                              "rnbqkbnr/p6p/2pp2p1/Pp2pp2/4P1P1/2P2N2/1P1P1P1P/RNBQKB1R w KQkq b6 0 7",
-                              "rn1qkbn1/pP5r/3pN1p1/4ppPp/4P3/2Np4/1p1KBP1P/R1BQ3R b q - 0 17",
-                              "r3k2r/8/2Q5/8/8/8/8/4K3 b kq - 0 1",
-                              "4k3/6q1/8/8/8/8/8/R3K2R w KQ - 0 1",
-                              "4k3/6q1/8/8/8/8/8/RN2K2R w KQ - 0 1"},
-                             {"KQ", "kq", "KQkq", "KQkq", "q", "kq", "KQ", "KQ"},
-                             {"e1", "e2", "e1", "e1", "d2", "e1", "e1", "e1"},
-                             {"f7", "e8", "e8", "e8", "e8", "e8", "e8", "e8"},
-                             {" ", " ", " ", "P", "P", " ", " ", " "},
-                             {"p", "p", "p", " ", "P", " ", " ", " "},
-                             {"........\n........\n........\n........\n........\n........\n........\n.1......\n",
-                              "........\n........\n........\n........\n........\n........\n........\n.1......\n",
-                              "........\n........\n........\n........\n........\n........\n........\n.1....1.\n",
-                              "........\n........\n........\n........\n........\n.....1..\n........\n.1......\n",
-                              "........\n........\n....1...\n........\n........\n..1.....\n........\n........\n",
-                              "........\n........\n........\n........\n........\n........\n........\n........\n",
-                              "........\n........\n........\n........\n........\n........\n........\n........\n",
-                              "........\n........\n........\n........\n........\n........\n........\n.1......\n"},
-                             {"........\n........\n1.......\n.1.1...1\n......1.\n11111111\n111111.1\n.111111.\n",
-                              "...1.1..\n...11...\n...1.1..\n1111....\n1..1....\n11111111\n1.111111\n.111111.\n",
-                              ".111111.\n11111111\n11111111\n........\n........\n........\n........\n........\n",
-                              "........\n........\n.1......\n11.11111\n1111...1\n11111111\n11111111\n.111111.\n",
-                              ".11111.1\n1111111.\n1111.1.1\n1.1.1111\n...1111.\n........\n..1.1...\n1.1.....\n",
-                              ".111111.\n1..111.1\n1......1\n1......1\n1......1\n1......1\n1......1\n1......1\n",
-                              "1......1\n1......1\n1......1\n1......1\n1......1\n1......1\n1..111.1\n.111111.\n",
-                              "1......1\n1......1\n1......1\n1......1\n1......1\n1.1....1\n1..111.1\n.1.1111.\n"},
-                             {"n", "y", "n", "n", "n", "y", "n", "n"}};
-    
-    for (int i = 0; i < 8; ++i)
+    "r3k2r/ppp2ppp/8/8/8/8/PPP2PPP/R3K2R w KQkq - 0 1",
+    "rn2k2r/ppp2ppp/6n1/8/4Q3/8/PPP2PPP/R3K2R b KQkq - 0 1",
+    "r3k2r/ppp2p1p/5Q2/8/8/8/PPP2PPP/R3K2R b KQkq - 0 1",
+    "8/8/8/8/4bbr1/4pkN1/7P/4K2R w K - 0 1"
+};
+
+void play()
+{
+    std::cout << "Type 'END' at any time to end the game.\n\n";
+
+    Game G;
+    std::cout << *(G.mainLineEnd->board) << "\n";
+    std::vector<std::string> LM = G.LegalMoves();
+    for (auto s : LM)
+        std::cout << s << " ";
+    std::cout << "\nYour move (UCI notation):" << std::flush;
+
+    std::string s;
+    while (std::cin >> s)
     {
-        brd = Board(test2Fen[i]);
-        ASSERT(brd.FEN() == sol[0][i], "Board::SetFEN, Board::FEN");
-        ASSERT(brd.CastlingRights() == sol[1][i], "Board::CastlingRights");
-        ASSERT(brd.King(WHITE).Name() == sol[2][i], "Board::King");
-        ASSERT(brd.King(BLACK).Name() == sol[3][i], "Board::King");
-        ASSERT(std::string(1, brd.PieceAt(Square("e4")).Symbol()) == sol[4][i], "Board::PieceAt");
-        ASSERT(std::string(1, brd.PieceAt(Square("b7")).Symbol()) == sol[5][i], "Board::PieceAt");
+        if (s == "END")
+            break;
 
-        std::stringstream ss;
-        ss << brd.Pieces(Piece('N'));
-        ASSERT(ss.str() == sol[6][i], "Board::Pieces");
-        ss.str(std::string());
-        
-        sB = SetSquares();
-        for (const SquareType sq : Squares)
+        if (std::find(LM.begin(), LM.end(), s) != LM.end())
         {
-            Square s(sq);
-            if (brd.IsAttackedBy(brd.ToMove(), s))
-                sB.Add(s);
-        }        
-        ss << sB;
-        ASSERT(ss.str() == sol[7][i], "Board::IsAttackedBy, SetSqures::Add");
-        ss.str(std::string());
-
-        ASSERT((brd.IsCheck() ? "y" : "n") == sol[8][i], "Board::IsCheck");
-
-        int cnt = 0;
-        std::cout << brd << std::endl;
-        for (auto& move : brd.PseudoLegalMoves())
+            G.MakeMove(s);
+            LM = G.LegalMoves();
+            std::cout << *(G.mainLineEnd->board) << "\n";
+            std::vector<std::string> LM = G.LegalMoves();
+            for (auto s : LM)
+                std::cout << s << " ";
+            std::cout << "\nYour move (UCI notation):" << std::endl;;
+        }
+        else
         {
-            //std::cout << " " << move.UCI();
-            std::cout << " " << brd.SAN(move);
-            if (++cnt > 4)
-                cnt = 0, std::cout << std::endl;
+            std::cout << "Invalid move. Try again!\nYour move (UCI notation):" << std::endl;
         }
-        if (cnt)
-            std::cout << std::endl;
-        std::cout << std::endl;
-
-        ASSERT(brd.IsValid(), "Board::IsValid, Board::Status");
     }
-    std::cout << std::endl << "Test #2 succesfully finished.\n" << std::endl;
 }
 
-void Test::test3()
+// Perft utilities
+int finalDepth = 5;
+unsigned long long captures[10], ep[10], castles[10], promotions[10], checks[10], checkmates[10];
+Board* B;
+
+unsigned long long Perft(int depth)
 {
-    std::cout << "Test #3 started..." << std::endl;
+    unsigned long long nodes = 0;
 
-    for (int i = 0; i < 8; ++i)
+    std::vector<Move> M = B->LegalMoves();
+
+    // Faster, less info
+    if (depth == 1)
+        return M.size();
+
+    // Slower, more info
+    // if (depth == 0)
+    //     return 1ull;
+
+    for (Move m : M)
     {
-        Board brd(test3Fen[i]);
-        SetSquares ss;
-        for (int i = 0; i < 64; ++i)
-            if (brd.IsPinned(brd.ToMove(), Square(ToSquare(i))))
-                ss.Add(Square(ToSquare(i)));
+        // captures[finalDepth - depth] += B->IsCapture(m);
+        // ep[finalDepth - depth] += B->IsEnPassant(m);
+        // castles[finalDepth - depth] += B->IsCastling(m);
+        // promotions[finalDepth - depth] += m.Promotion() != NONE;
 
-        std::cout << ss << std::endl << std::endl;
+        B = B->MakeMove(m);
+        // checks[finalDepth - depth] += B->IsCheck();
+        // checkmates[finalDepth - depth] += B->IsCheckmate();
+        nodes += Perft(depth - 1);
+        B = B->UnmakeMove();
     }
+
+    return nodes;
 }
 
-void Test::test4()
+// Perft with results divided according to first move
+std::map<std::string, int> Perftd(int depth)
 {
-    for (int i = 0; i < 8; ++i)
+    std::map<std::string, int> R;
+    std::vector<Move> M = B->LegalMoves();
+
+    for (Move m : M)
     {
-        brd = Board(test3Fen[i]);
-        int cnt = 0;
-        std::cout << brd << std::endl;
-        for (auto& move : brd.PseudoLegalMoves())
-        {            
-            std::cout << " " << brd.SAN(move);
-            if (++cnt > 4)
-                cnt = 0, std::cout << std::endl;
-        }
-        if (cnt)
-            std::cout << std::endl;
-        std::cout << std::endl;
+        B = B->MakeMove(m);
+        R[m.UCI()] = Perft(depth - 1);
+        B = B->UnmakeMove();
     }
+
+    return R;
 }
-    
+
+// Perftd by Stockfish
+std::map<std::string, int> stockfish_perft(std::string fen, int depth)
+{
+    // Path to stockfish executable
+    std::string stockfish = "stockfish";
+    opstream in;
+    ipstream out;
+
+    child c(stockfish, std_out > out, std_in < in);
+
+    in << "position fen " <<  fen << "\n"
+       << "go perft " << depth << "\n"
+       << "quit" << std::endl;
+
+    std::map<std::string, int> M;
+    std::string value;
+    while (getline(out, value))
+    {
+        size_t colon = value.find_first_of(':');
+        if (colon == std::string::npos || colon > 5)
+            continue;
+
+        std::string move = value.substr(0, colon), cnt = value.substr(colon + 2);
+        M[move] = std::stoi(cnt);
+    }
+
+    c.terminate();
+    return M;
+}
+
+// Compare perftd results
+bool compare(std::map<std::string, int> a, std::map<std::string, int> b)
+{
+    bool ret = true;
+    if (a.size() != b.size())
+        ret = false, std::cout << "Different sizes! " << a.size() << " vs " << b.size() << std::endl;
+
+    for (auto &it : a)
+    {
+        const std::string &key = it.first;
+        if (b.find(key) != b.end() && a[key] != b[key])
+            ret = false, std::cout << key << ' ' << a[key] << "!=" << b[key] << '\n';
+    }
+
+    return ret;
+}
+
 int main()
 {
-    Test T;
-    //T.test1();
-    //T.test2();
-    //T.test3();
-    T.test4();
-    
-    // More tests: Board::PseudoLegalMoves, Board::Pieces, Board::ClearBoard, Board::CanCastleQS / KS, IsPinned
+    // Perft
+    // B = new Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    // B = new Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    // B = new Board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1");
+    // B = new Board("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8");
+    // B = new Board("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10");
+
+    // Perft with more info
+    // std::cout << Perft(finalDepth) << " " << captures[finalDepth - 1] << " " << ep[finalDepth - 1]
+    //           << " " << castles[finalDepth - 1] << " " << promotions[finalDepth - 1]
+    //           << " " << checks[finalDepth - 1] << " " << checkmates[finalDepth - 1] << "\n";
+
+
+    // int depth = 6;
+    // auto M = stockfish_perft(B->FEN(), depth);
+    // auto N = Perftd(depth);
+    // std::cout << compare(M, N) << "\n";
+
+    play();
 }

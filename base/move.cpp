@@ -36,7 +36,9 @@ Move::Move(const std::string &s)
         promotion = PieceTypes[ind];
     }
     else
+    {
         promotion = NONE;
+    }
 }
 
 Move::Move(const Move &m)
